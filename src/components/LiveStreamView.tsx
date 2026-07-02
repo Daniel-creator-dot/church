@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LiveStream, Role } from '../types';
 import { getTodayString } from '../utils/date';
+import { liveStreamsApi } from '../api';
+import { dbLiveStreamToFrontend, frontendLiveStreamToDb } from '../innovationMapper';
 
 interface LiveStreamViewProps {
   activeRole: Role;
@@ -115,31 +117,27 @@ export default function LiveStreamView({
     setNewChatText('');
   };
 
-  const handleSaveStream = (e: React.FormEvent) => {
+  const handleSaveStream = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title || !speaker) return;
 
-    const newId = `LS-${Math.floor(100 + Math.random() * 900)}`;
-    const newStream: LiveStream = {
-      id: newId,
-      title,
-      speaker,
-      date,
-      time,
-      status,
-      embedUrl: embedUrl || 'https://www.youtube.com/embed/dQw4w9WgXcQ',
-      description
-    };
-
-    // If setting to Live, demote other live streams to completed
-    let updatedStreams = [...liveStreams];
-    if (status === 'Live') {
-      updatedStreams = updatedStreams.map(s => s.status === 'Live' ? { ...s, status: 'Completed' as const } : s);
+    try {
+      const saved = await liveStreamsApi.create(frontendLiveStreamToDb({
+        title, speaker, date, time, status,
+        embedUrl: embedUrl || 'https://www.youtube.com/embed/jfKfPfyJRdk',
+        description,
+      }));
+      const newStream = dbLiveStreamToFrontend(saved);
+      let updatedStreams = liveStreams;
+      if (status === 'Live') {
+        updatedStreams = liveStreams.map(s => s.status === 'Live' ? { ...s, status: 'Completed' as const } : s);
+      }
+      onUpdateLiveStreams([newStream, ...updatedStreams]);
+      setSelectedStreamId(newStream.id);
+      resetForm();
+    } catch (error) {
+      console.error('Failed to save stream', error);
     }
-
-    onUpdateLiveStreams([newStream, ...updatedStreams]);
-    setSelectedStreamId(newId);
-    resetForm();
   };
 
   const resetForm = () => {
@@ -153,17 +151,21 @@ export default function LiveStreamView({
     setShowForm(false);
   };
 
-  const updateStatus = (id: string, newStatus: 'Live' | 'Upcoming' | 'Completed') => {
-    let updated = liveStreams.map(s => {
-      if (s.id === id) {
-        return { ...s, status: newStatus };
-      }
-      if (newStatus === 'Live' && s.status === 'Live') {
-        return { ...s, status: 'Completed' as const };
-      }
-      return s;
-    });
-    onUpdateLiveStreams(updated);
+  const updateStatus = async (id: string, newStatus: 'Live' | 'Upcoming' | 'Completed') => {
+    try {
+      const stream = liveStreams.find(s => s.id === id);
+      if (!stream) return;
+      const dbId = parseInt(id.replace('LS-', ''), 10);
+      const saved = await liveStreamsApi.update(dbId, frontendLiveStreamToDb({ ...stream, status: newStatus }));
+      const updated = liveStreams.map(s => {
+        if (s.id === id) return dbLiveStreamToFrontend(saved);
+        if (newStatus === 'Live' && s.status === 'Live') return { ...s, status: 'Completed' as const };
+        return s;
+      });
+      onUpdateLiveStreams(updated);
+    } catch (error) {
+      console.error('Failed to update stream status', error);
+    }
   };
 
   const canManage = ['Super Admin', 'Pastor', 'Church Administrator', 'Media'].includes(activeRole);

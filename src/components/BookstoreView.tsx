@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Book, Role } from '../types';
+import { booksApi } from '../api';
+import { dbBookToFrontend, frontendBookToDb } from '../innovationMapper';
 
 interface BookstoreViewProps {
   activeRole: Role;
@@ -11,6 +13,7 @@ interface BookstoreViewProps {
   onUpdatePurchasedBooks: (newIds: string[]) => void;
   onRecordTransaction: (transaction: { type: 'Income' | 'Expense'; category: string; amount: number; description: string }) => void;
   onUpdateBooks: (newBooks: Book[]) => void;
+  currentMemberId?: string;
 }
 
 export default function BookstoreView({
@@ -20,6 +23,7 @@ export default function BookstoreView({
   onUpdatePurchasedBooks,
   onRecordTransaction,
   onUpdateBooks,
+  currentMemberId,
   currencySymbol = '$',
   currencyCode = 'USD',
   formatCurrency = (amount: number) => `${currencySymbol}${amount.toLocaleString()}`,
@@ -51,65 +55,62 @@ export default function BookstoreView({
   const readingBook = books.find(b => b.id === readingBookId) || null;
   const checkoutBook = books.find(b => b.id === checkoutBookId) || null;
 
-  const handleCheckoutSubmit = (e: React.FormEvent) => {
+  const handleCheckoutSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!checkoutBook) return;
 
     setIsProcessingPay(true);
+    try {
+      const dbBookId = parseInt(checkoutBook.id.replace('BK-', ''), 10);
+      const memberDbId = currentMemberId ? parseInt(currentMemberId.replace('M-', ''), 10) : null;
 
-    // Simulate payment processing delays
-    setTimeout(() => {
-      setIsProcessingPay(false);
-      
-      // Update purchased books
-      const updatedPurchased = [...purchasedBookIds, checkoutBook.id];
-      onUpdatePurchasedBooks(updatedPurchased);
+      await booksApi.purchase(dbBookId, {
+        member_id: memberDbId,
+        purchaser_name: purchaserName,
+        payment_method: payMethod,
+        amount: checkoutBook.price,
+      });
 
-      // Record transaction on financial ledger
+      onUpdatePurchasedBooks([...purchasedBookIds, checkoutBook.id]);
       onRecordTransaction({
         type: 'Income',
         category: 'Bookstore Sale',
         amount: checkoutBook.price,
-        description: `Book Bookstore Sale: "${checkoutBook.title}" purchased by ${purchaserName}`
+        description: `Bookstore: "${checkoutBook.title}" — ${purchaserName} (${payMethod})`,
       });
 
-      alert(`Payment of ${formatCurrency(checkoutBook.price)} successful! "${checkoutBook.title}" is now permanently unlocked in your media library.`);
-      
-      // Navigate to book details
       setSelectedBookId(checkoutBook.id);
       setCheckoutBookId(null);
-    }, 1500);
+    } catch (error) {
+      console.error('Purchase failed', error);
+    } finally {
+      setIsProcessingPay(false);
+    }
   };
 
-  const handleCreateBook = (e: React.FormEvent) => {
+  const handleCreateBook = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle || !newAuthor) return;
 
-    const customPages = newPagesText.trim() 
+    const customPages = newPagesText.trim()
       ? newPagesText.split('\n\n').map((p, idx) => `Page ${idx + 1}:\n\n${p}`)
-      : ['Page 1: Under Construction.\n\nNo pages added yet. Contact the author for contents.'];
+      : ['Page 1:\n\nContent coming soon.'];
 
-    const newBook: Book = {
-      id: `BK-${Math.floor(100 + Math.random() * 900)}`,
-      title: newTitle,
-      author: newAuthor,
-      price: Number(newPrice),
-      description: newDesc,
-      coverUrl: newCover || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&auto=format&fit=crop&q=60',
-      pages: customPages
-    };
-
-    onUpdateBooks([...books, newBook]);
-    setShowAddForm(false);
-    
-    // Clear fields
-    setNewTitle('');
-    setNewAuthor('');
-    setNewPrice(10.00);
-    setNewDesc('');
-    setNewCover('');
-    setNewPagesText('');
-    alert(`Book "${newBook.title}" has been successfully added to the Church Bookstore catalog!`);
+    try {
+      const saved = await booksApi.create(frontendBookToDb({
+        title: newTitle,
+        author: newAuthor,
+        price: Number(newPrice),
+        description: newDesc,
+        coverUrl: newCover || 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&auto=format&fit=crop&q=60',
+        pages: customPages,
+      }));
+      onUpdateBooks([dbBookToFrontend(saved), ...books]);
+      setShowAddForm(false);
+      setNewTitle(''); setNewAuthor(''); setNewPrice(10); setNewDesc(''); setNewCover(''); setNewPagesText('');
+    } catch (error) {
+      console.error('Failed to create book', error);
+    }
   };
 
   const handleStartReading = (book: Book) => {

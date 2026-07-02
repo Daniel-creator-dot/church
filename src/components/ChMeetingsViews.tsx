@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Role, Member, ChurchEvent, Household, Fund, PledgeCampaign, Pledge,
   VolunteerRole, VolunteerAssignment, Song, WorshipPlan, WorshipPlanItem, Communication,
-  CustomForm, CheckInRecord, FinanceTransaction, MemberOption
+  CustomForm, CheckInRecord, FinanceTransaction, MemberOption, Announcement, Devotional
 } from '../types';
 import {
   householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi,
@@ -16,6 +16,7 @@ import {
   dbWorshipPlanItemToFrontend, frontendWorshipItemToDb
 } from '../chMeetingsMapper';
 import { getTodayString } from '../utils/date';
+import { printSundayBulletin } from '../utils/bulletin';
 
 type ChMeetingsSubView =
   | 'Calendar' | 'Volunteers' | 'Worship Planning' | 'Pledges & Funds'
@@ -53,6 +54,8 @@ interface ChMeetingsViewsProps {
   transactions: FinanceTransaction[];
   onUpdateTransactions: (t: FinanceTransaction[]) => void;
   formatCurrency: (amount: number) => string;
+  announcements?: Announcement[];
+  devotionals?: Devotional[];
 }
 
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -592,12 +595,26 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
 
         {selectedPlan && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
               <div>
                 <h4 className="text-lg font-bold text-slate-800">{selectedPlan.title}</h4>
                 <p className="text-sm text-slate-500">{selectedPlan.serviceDate} · {sortedItems.length} items · ~{totalDuration} min</p>
               </div>
-              {planLoading && <span className="text-xs text-slate-400">Loading...</span>}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => printSundayBulletin({
+                    plan: selectedPlan,
+                    announcements: (props.announcements || []).filter(a => a.status === 'Published'),
+                    events: props.events,
+                    devotional: (props.devotionals || []).find(d => d.date === today) || props.devotionals?.[0],
+                  })}
+                  className="btn-secondary text-xs flex items-center gap-1.5"
+                >
+                  <i className="bi bi-printer"></i> Print Sunday Bulletin
+                </button>
+                {planLoading && <span className="text-xs text-slate-400">Loading...</span>}
+              </div>
             </div>
             {sortedItems.length === 0 ? (
               <p className="text-sm text-slate-400 text-center py-8">No items yet — add songs, prayers, and sermon to build the order of service.</p>

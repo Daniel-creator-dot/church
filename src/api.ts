@@ -316,3 +316,26 @@ export const groupsApi = {
   getMeetings: (id: number) => apiCall(`/groups/${id}/meetings`),
   logMeeting: (id: number, data: any) => apiCall(`/groups/${id}/meetings`, { method: 'POST', body: JSON.stringify(data) }),
 };
+
+export const booksApi = {
+  getAll: () => apiCall('/books'),
+  create: (data: any) => apiCall('/books', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/books/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getPurchases: (memberId: number) => apiCall(`/books/purchases/${memberId}`),
+  purchase: (bookId: number, data: any) => apiCall(`/books/${bookId}/purchase`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
+export const liveStreamsApi = {
+  getAll: () => apiCall('/livestreams'),
+  create: (data: any) => apiCall('/livestreams', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/livestreams/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/livestreams/${id}`, { method: 'DELETE' }),
+};
+
+export const discipleshipApi = {
+  getSteps: () => apiCall('/discipleship/steps'),
+  createStep: (data: any) => apiCall('/discipleship/steps', { method: 'POST', body: JSON.stringify(data) }),
+  getProgress: (memberId: number) => apiCall(`/discipleship/progress/${memberId}`),
+  getOverview: () => apiCall('/discipleship/overview'),
+  updateProgress: (data: any) => apiCall('/discipleship/progress', { method: 'POST', body: JSON.stringify(data) }),
+};

@@ -30,6 +30,9 @@ import financeRouter from './routes/finance.js';
 import checkinRouter from './routes/checkin.js';
 import insightsRouter from './routes/insights.js';
 import groupsRouter from './routes/groups.js';
+import booksRouter from './routes/books.js';
+import livestreamsRouter from './routes/livestreams.js';
+import discipleshipRouter from './routes/discipleship.js';
 
 dotenv.config();
 
@@ -102,6 +105,9 @@ app.use('/api/finance', financeRouter);
 app.use('/api/checkin', checkinRouter);
 app.use('/api/insights', insightsRouter);
 app.use('/api/groups', groupsRouter);
+app.use('/api/books', booksRouter);
+app.use('/api/livestreams', livestreamsRouter);
+app.use('/api/discipleship', discipleshipRouter);
 
 // Serve frontend build in production when enabled
 const distPath = path.join(__dirname, '..', 'dist');

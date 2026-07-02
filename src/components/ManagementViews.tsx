@@ -359,6 +359,25 @@ export default function ManagementViews({
     }
   };
 
+  const handleDeleteAttendance = async (recordId: string) => {
+    if (!confirm('Delete this attendance record?')) return;
+    try {
+      const dbId = parseInt(recordId.replace('A-', ''), 10);
+      await attendanceApi.delete(dbId);
+      onUpdateAttendance(attendance.filter(a => a.id !== recordId));
+    } catch (error) {
+      console.error('Failed to delete attendance', error);
+    }
+  };
+
+  const toggleAttendant = (memberId: string) => {
+    setSelectedAttendants(prev => {
+      const isSelected = prev.includes(memberId);
+      setAttendanceHeadcount(h => isSelected ? Math.max(0, h - 1) : h + 1);
+      return isSelected ? prev.filter(id => id !== memberId) : [...prev, memberId];
+    });
+  };
+
   const handleSaveFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!followTargetName) return;
@@ -485,7 +504,14 @@ export default function ManagementViews({
 
   const canManageMembers = ['Pastor', 'Church Administrator', 'Department Leader'].includes(activeRole);
   const canManageDepartments = ['Pastor', 'Church Administrator'].includes(activeRole);
+  const canManageAttendance = ['Pastor', 'Church Administrator', 'Department Leader'].includes(activeRole);
   const canModifyDept = activeRole === 'Pastor' || activeRole === 'Church Administrator' || activeRole === 'Department Leader';
+
+  const attendanceStats = {
+    totalServices: attendance.length,
+    avgHeadcount: attendance.length ? Math.round(attendance.reduce((s, a) => s + a.headcount, 0) / attendance.length) : 0,
+    lastService: attendance.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0],
+  };
 
   const generateVisitorLink = () => {
     if (typeof window === 'undefined') return;
@@ -834,10 +860,137 @@ export default function ManagementViews({
       {/* 3. ATTENDANCE MANAGEMENT */}
       {activeSubView === 'Attendance' && (
         <div className="space-y-6">
-          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Attendance Management</h3>
-            <p className="text-sm text-slate-500">Record and track service attendance.</p>
+          <div className="bg-gradient-to-r from-indigo-50 to-white p-6 rounded-2xl border border-indigo-100">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-calendar-check text-indigo-600 mr-2"></i>Attendance Management</h3>
+                <p className="text-sm text-slate-500 mt-1">Record service headcounts and track member attendance.</p>
+              </div>
+              {canManageAttendance && (
+                <button type="button" onClick={() => setShowAttendanceForm(true)} className="btn-primary text-xs">
+                  <i className="bi bi-plus-lg mr-1"></i> Record Service
+                </button>
+              )}
+            </div>
           </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+              <div className="text-2xl font-bold text-indigo-700">{attendanceStats.totalServices}</div>
+              <div className="text-xs text-slate-500 uppercase font-semibold mt-1">Services Recorded</div>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+              <div className="text-2xl font-bold text-indigo-700">{attendanceStats.avgHeadcount}</div>
+              <div className="text-xs text-slate-500 uppercase font-semibold mt-1">Avg Headcount</div>
+            </div>
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 text-center">
+              <div className="text-2xl font-bold text-indigo-700">{attendanceStats.lastService?.headcount || '—'}</div>
+              <div className="text-xs text-slate-500 uppercase font-semibold mt-1">Last Service</div>
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex flex-col md:flex-row gap-3">
+              <input
+                type="text"
+                placeholder="Search by date or service..."
+                className="input-elegant flex-1"
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+              />
+              <select className="input-elegant cursor-pointer" value={filterType} onChange={e => setFilterType(e.target.value)}>
+                <option value="All">All Services</option>
+                <option value="Sunday Service">Sunday Service</option>
+                <option value="Midweek Service">Midweek Service</option>
+                <option value="Prayer Meeting">Prayer Meeting</option>
+                <option value="Department Meeting">Department Meeting</option>
+                <option value="Special Program">Special Program</option>
+              </select>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="table-elegant">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Service</th>
+                    <th>Headcount</th>
+                    <th>Members Tracked</th>
+                    <th>Notes</th>
+                    {canManageAttendance && <th></th>}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredAttendance.map(record => (
+                    <tr key={record.id}>
+                      <td className="font-medium">{record.date}</td>
+                      <td><span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">{record.serviceType}</span></td>
+                      <td className="font-bold text-indigo-700">{record.headcount}</td>
+                      <td className="text-xs text-slate-500">{record.attendedMemberIds.length} checked</td>
+                      <td className="text-xs text-slate-400 max-w-[150px] truncate">{record.notes || '—'}</td>
+                      {canManageAttendance && (
+                        <td>
+                          <button type="button" onClick={() => handleDeleteAttendance(record.id)} className="text-red-400 hover:text-red-600 p-1">
+                            <i className="bi bi-trash text-xs"></i>
+                          </button>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredAttendance.length === 0 && (
+                <p className="text-sm text-slate-400 text-center py-8">No attendance records yet.</p>
+              )}
+            </div>
+          </div>
+
+          {showAttendanceForm && (
+            <div className="modal-backdrop">
+              <div className="modal-content p-6 space-y-4 max-w-lg max-h-[90vh] overflow-y-auto">
+                <h3 className="font-bold text-lg">Record Service Attendance</h3>
+                <form onSubmit={handleSaveAttendance} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400">Date</label>
+                      <input type="date" required value={attendanceDate} onChange={e => setAttendanceDate(e.target.value)} className="input-elegant w-full" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase text-slate-400">Service Type</label>
+                      <select value={attendanceService} onChange={e => setAttendanceService(e.target.value as ServiceType)} className="input-elegant w-full">
+                        <option value="Sunday Service">Sunday Service</option>
+                        <option value="Midweek Service">Midweek Service</option>
+                        <option value="Prayer Meeting">Prayer Meeting</option>
+                        <option value="Department Meeting">Department Meeting</option>
+                        <option value="Special Program">Special Program</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400">Headcount</label>
+                    <input type="number" min={0} value={attendanceHeadcount} onChange={e => setAttendanceHeadcount(+e.target.value)} className="input-elegant w-full" />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold uppercase text-slate-400 mb-2 block">Mark Present Members ({selectedAttendants.length})</label>
+                    <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl p-2 space-y-1">
+                      {members.filter(m => m.membershipStatus === 'Active').map(m => (
+                        <label key={m.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 cursor-pointer text-xs">
+                          <input type="checkbox" checked={selectedAttendants.includes(m.id)} onChange={() => toggleAttendant(m.id)} />
+                          <span>{m.name}</span>
+                          <span className="text-slate-400 ml-auto">{m.department}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <textarea value={attendanceNotes} onChange={e => setAttendanceNotes(e.target.value)} placeholder="Notes (optional)" className="input-elegant w-full h-20 resize-none" />
+                  <div className="flex gap-2">
+                    <button type="button" onClick={resetAttendanceForm} className="btn-secondary flex-1">Cancel</button>
+                    <button type="submit" className="btn-primary flex-1">Save Record</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

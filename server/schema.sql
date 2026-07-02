@@ -409,3 +409,66 @@ CREATE TABLE IF NOT EXISTS group_meetings (
 CREATE INDEX IF NOT EXISTS idx_small_groups_active ON small_groups(is_active);
 CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
 CREATE INDEX IF NOT EXISTS idx_group_meetings_date ON group_meetings(meeting_date);
+
+-- Bookstore
+CREATE TABLE IF NOT EXISTS books (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  author VARCHAR(255),
+  price DECIMAL(10,2) DEFAULT 0,
+  description TEXT,
+  cover_url TEXT,
+  pages JSONB DEFAULT '[]',
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS book_purchases (
+  id SERIAL PRIMARY KEY,
+  book_id INTEGER REFERENCES books(id) ON DELETE CASCADE,
+  member_id INTEGER REFERENCES members(id),
+  purchaser_name VARCHAR(255),
+  payment_method VARCHAR(50) DEFAULT 'Cash',
+  amount DECIMAL(10,2),
+  purchased_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(book_id, member_id)
+);
+
+-- Live streams
+CREATE TABLE IF NOT EXISTS live_streams (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  speaker VARCHAR(255),
+  stream_date DATE,
+  stream_time VARCHAR(20),
+  status VARCHAR(20) DEFAULT 'Upcoming',
+  embed_url TEXT,
+  description TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Discipleship pathways
+CREATE TABLE IF NOT EXISTS discipleship_steps (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  category VARCHAR(50) DEFAULT 'New Convert',
+  sort_order INTEGER DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS member_pathway_progress (
+  id SERIAL PRIMARY KEY,
+  member_id INTEGER REFERENCES members(id) ON DELETE CASCADE,
+  step_id INTEGER REFERENCES discipleship_steps(id) ON DELETE CASCADE,
+  status VARCHAR(20) DEFAULT 'Pending',
+  completed_date DATE,
+  notes TEXT,
+  UNIQUE(member_id, step_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_books_active ON books(is_active);
+CREATE INDEX IF NOT EXISTS idx_book_purchases_member ON book_purchases(member_id);
+CREATE INDEX IF NOT EXISTS idx_live_streams_date ON live_streams(stream_date);
+CREATE INDEX IF NOT EXISTS idx_pathway_progress_member ON member_pathway_progress(member_id);

@@ -431,3 +431,31 @@ export interface DashboardInsights {
   topEngaged: { id: number; name: string; checkins: number; recentGiving: number }[];
 }
 
+export interface DiscipleshipStep {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+
+export interface PathwayProgress {
+  id: string;
+  memberId: string;
+  stepId: string;
+  stepTitle: string;
+  stepDescription: string;
+  category: string;
+  status: 'Pending' | 'In Progress' | 'Completed';
+  completedDate?: string;
+  notes?: string;
+}
+
+export interface PathwayOverview {
+  id: number;
+  name: string;
+  completed: number;
+  total: number;
+}
+

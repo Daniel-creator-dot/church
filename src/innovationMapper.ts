@@ -1,4 +1,4 @@
-import { SmallGroup, GroupMember, GroupMeeting } from './types';
+import { SmallGroup, GroupMember, GroupMeeting, Book, LiveStream, DiscipleshipStep, PathwayProgress } from './types';
 
 export function dbGroupToFrontend(db: any): SmallGroup {
   return {
@@ -50,6 +50,80 @@ export function dbGroupMeetingToFrontend(db: any): GroupMeeting {
     meetingDate: db.meeting_date?.split('T')[0] || '',
     topic: db.topic || '',
     attendanceCount: db.attendance_count || 0,
+    notes: db.notes || '',
+  };
+}
+
+export function dbBookToFrontend(db: any): Book {
+  const pages = Array.isArray(db.pages) ? db.pages : (typeof db.pages === 'string' ? JSON.parse(db.pages) : []);
+  return {
+    id: `BK-${db.id}`,
+    title: db.title,
+    author: db.author || '',
+    price: parseFloat(db.price) || 0,
+    description: db.description || '',
+    coverUrl: db.cover_url || '',
+    pages: pages.map((p: string, i: number) => p.startsWith('Page') ? p : `Page ${i + 1}:\n\n${p}`),
+  };
+}
+
+export function frontendBookToDb(book: Partial<Book>): any {
+  return {
+    title: book.title,
+    author: book.author,
+    price: book.price,
+    description: book.description,
+    cover_url: book.coverUrl,
+    pages: book.pages || [],
+  };
+}
+
+export function dbLiveStreamToFrontend(db: any): LiveStream {
+  return {
+    id: `LS-${db.id}`,
+    title: db.title,
+    speaker: db.speaker || '',
+    date: db.stream_date?.split('T')[0] || '',
+    time: db.stream_time || '',
+    status: db.status || 'Upcoming',
+    embedUrl: db.embed_url || '',
+    description: db.description || '',
+  };
+}
+
+export function frontendLiveStreamToDb(stream: Partial<LiveStream>): any {
+  return {
+    title: stream.title,
+    speaker: stream.speaker,
+    stream_date: stream.date,
+    stream_time: stream.time,
+    status: stream.status,
+    embed_url: stream.embedUrl,
+    description: stream.description,
+  };
+}
+
+export function dbDiscipleshipStepToFrontend(db: any): DiscipleshipStep {
+  return {
+    id: String(db.id),
+    title: db.title,
+    description: db.description || '',
+    category: db.category || 'New Convert',
+    sortOrder: db.sort_order || 0,
+    isActive: db.is_active !== false,
+  };
+}
+
+export function dbPathwayProgressToFrontend(db: any): PathwayProgress {
+  return {
+    id: String(db.id),
+    memberId: String(db.member_id),
+    stepId: String(db.step_id),
+    stepTitle: db.title || '',
+    stepDescription: db.description || '',
+    category: db.category || '',
+    status: db.status || 'Pending',
+    completedDate: db.completed_date?.split('T')[0],
     notes: db.notes || '',
   };
 }
