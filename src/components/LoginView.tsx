@@ -111,7 +111,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
       }}
     >
       {/* White fade overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-white/85 to-white/75"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/70 via-white/60 to-white/50"></div>
       
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6 relative z-10">
         {/* Header */}
