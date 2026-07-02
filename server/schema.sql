@@ -207,9 +207,16 @@ CREATE TABLE IF NOT EXISTS households (
   name VARCHAR(255) NOT NULL,
   address TEXT,
   primary_member_id INTEGER REFERENCES members(id),
+  contact_phone VARCHAR(20),
+  family_code VARCHAR(12) UNIQUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ALTER TABLE members ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
+ALTER TABLE households ADD COLUMN IF NOT EXISTS contact_phone VARCHAR(20);
+ALTER TABLE households ADD COLUMN IF NOT EXISTS family_code VARCHAR(12) UNIQUE;
+
+CREATE INDEX IF NOT EXISTS idx_households_contact_phone ON households(contact_phone);
+CREATE INDEX IF NOT EXISTS idx_households_family_code ON households(family_code);
 
 -- Designated giving funds
 CREATE TABLE IF NOT EXISTS funds (

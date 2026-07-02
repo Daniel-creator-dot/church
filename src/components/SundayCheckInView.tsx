@@ -8,6 +8,8 @@ interface FamilyMember {
   name: string;
   phone?: string;
   alreadyCheckedIn: boolean;
+  isSuggested?: boolean;
+  isYou?: boolean;
 }
 
 function initials(name: string) {
@@ -35,6 +37,9 @@ export default function SundayCheckInView() {
   const [serviceDate, setServiceDate] = useState('');
   const [checkedInNames, setCheckedInNames] = useState<string[]>([]);
   const [liveCount, setLiveCount] = useState(0);
+  const [confirmRequired, setConfirmRequired] = useState(false);
+  const [surnameHint, setSurnameHint] = useState<string | null>(null);
+  const [lookupMode, setLookupMode] = useState<'registered' | 'suggested' | 'solo'>('solo');
 
   useEffect(() => {
     checkinApi.getSundayStats()
@@ -57,8 +62,18 @@ export default function SundayCheckInView() {
       setEventId(data.eventId);
       setServiceDate(data.serviceDate);
       setLiveCount(data.checkedInToday);
+      setConfirmRequired(Boolean(data.confirmRequired));
+      setSurnameHint(data.surnameHint || null);
+      setLookupMode(data.lookupMode || 'solo');
+
       const toSelect = new Set<number>(
-        data.members.filter((m: FamilyMember) => !m.alreadyCheckedIn).map((m: FamilyMember) => m.id)
+        data.members
+          .filter((m: FamilyMember) => {
+            if (m.alreadyCheckedIn) return false;
+            if (data.confirmRequired) return m.isYou;
+            return true;
+          })
+          .map((m: FamilyMember) => m.id)
       );
       setSelected(toSelect);
       setStep('family');
@@ -104,6 +119,9 @@ export default function SundayCheckInView() {
     setSelected(new Set());
     setError('');
     setCheckedInNames([]);
+    setConfirmRequired(false);
+    setSurnameHint(null);
+    setLookupMode('solo');
   };
 
   return (
@@ -140,7 +158,7 @@ export default function SundayCheckInView() {
                 </div>
                 <h2 className="text-xl font-bold text-white">Enter your phone number</h2>
                 <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-                  We'll pull up your household so you can check everyone in with one tap.
+                  Enter your number — we'll show your family. If you're not registered yet, we'll suggest people with the same surname for you to confirm.
                 </p>
               </div>
 
@@ -201,12 +219,32 @@ export default function SundayCheckInView() {
                 </button>
               </div>
 
-              <p className="text-slate-400 text-xs mb-4">Tap to select who's here today — all present members are pre-selected.</p>
+              <p className="text-slate-400 text-xs mb-4">
+                {confirmRequired
+                  ? 'Only people matched to your phone are pre-selected. Tap to add family members with the same surname who are here today.'
+                  : 'Tap to select who\'s here today — all household members are pre-selected.'}
+              </p>
+
+              {confirmRequired && surnameHint && (
+                <div className="mb-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-100 text-sm">
+                  <div className="flex items-start gap-2">
+                    <i className="bi bi-people-fill text-amber-400 shrink-0 mt-0.5"></i>
+                    <div>
+                      <p className="font-semibold text-amber-200">Please confirm your family</p>
+                      <p className="text-amber-100/80 text-xs mt-1 leading-relaxed">
+                        We found others with the surname <span className="font-bold text-white">{surnameHint}</span>.
+                        Not everyone may be related — only tick the people in your household today.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
                 {members.map((m, idx) => {
                   const isSelected = selected.has(m.id);
                   const color = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                  const isSuggested = m.isSuggested && lookupMode === 'suggested';
                   return (
                     <button
                       key={m.id}
@@ -217,7 +255,11 @@ export default function SundayCheckInView() {
                         m.alreadyCheckedIn
                           ? 'bg-emerald-500/10 border-emerald-500/20 opacity-70 cursor-default'
                           : isSelected
-                          ? 'bg-amber-500/15 border-amber-500/40 shadow-lg shadow-amber-500/10'
+                          ? isSuggested
+                            ? 'bg-violet-500/15 border-violet-500/40 shadow-lg shadow-violet-500/10'
+                            : 'bg-amber-500/15 border-amber-500/40 shadow-lg shadow-amber-500/10'
+                          : isSuggested
+                          ? 'bg-white/[0.03] border-violet-500/20 border-dashed hover:border-violet-500/40'
                           : 'bg-white/5 border-white/10 hover:border-white/20'
                       }`}
                     >
@@ -229,6 +271,14 @@ export default function SundayCheckInView() {
                         {m.alreadyCheckedIn ? (
                           <div className="text-xs text-emerald-400 flex items-center gap-1 mt-0.5">
                             <i className="bi bi-check-circle-fill"></i> Already checked in
+                          </div>
+                        ) : m.isYou ? (
+                          <div className="text-xs text-amber-400 mt-0.5 flex items-center gap-1">
+                            <i className="bi bi-telephone-fill"></i> Matched to your phone
+                          </div>
+                        ) : isSuggested ? (
+                          <div className="text-xs text-violet-300 mt-0.5 flex items-center gap-1">
+                            <i className="bi bi-question-circle"></i> Same surname — confirm if family
                           </div>
                         ) : (
                           <div className="text-xs text-slate-400 mt-0.5">{isSelected ? 'Present today' : 'Tap to include'}</div>
@@ -260,7 +310,7 @@ export default function SundayCheckInView() {
               {loading ? 'Checking in...' : (
                 <span className="flex items-center justify-center gap-2">
                   <i className="bi bi-check2-circle text-lg"></i>
-                  Check In {selected.size} {selected.size === 1 ? 'Person' : 'People'}
+                  {confirmRequired ? 'Confirm & Check In' : 'Check In'} {selected.size} {selected.size === 1 ? 'Person' : 'People'}
                 </span>
               )}
             </button>

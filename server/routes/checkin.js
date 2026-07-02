@@ -62,6 +62,47 @@ async function syncSundayAttendance(memberIds) {
   }
 }
 
+async function getMembersForHousehold(householdId) {
+  return pool.query(
+    `SELECT m.id, m.first_name, m.last_name, m.phone, m.household_id
+     FROM members m
+     WHERE m.household_id = $1 AND LOWER(COALESCE(m.status, 'active')) = 'active'
+     ORDER BY m.first_name, m.last_name`,
+    [householdId]
+  );
+}
+
+async function buildLookupResponse(familyRows, householdMeta, event) {
+  const checkedIn = await pool.query(
+    'SELECT member_id FROM event_checkins WHERE event_id = $1',
+    [event.id]
+  );
+  const checkedInSet = new Set(checkedIn.rows.map(r => r.member_id));
+
+  return {
+    householdName: householdMeta.name,
+    familyCode: householdMeta.family_code || null,
+    isRegisteredHousehold: Boolean(householdMeta.id),
+    needsHouseholdSetup: !householdMeta.id,
+    lookupMode: householdMeta.lookupMode || (householdMeta.id ? 'registered' : 'solo'),
+    confirmRequired: Boolean(householdMeta.confirmRequired),
+    surnameHint: householdMeta.surnameHint || null,
+    primaryMemberId: familyRows[0]?.id,
+    eventId: event.id,
+    serviceDate: event.event_date,
+    serviceTitle: event.title,
+    checkedInToday: checkedIn.rows.length,
+    members: familyRows.map(m => ({
+      id: m.id,
+      name: `${m.first_name} ${m.last_name}`.trim(),
+      phone: m.phone,
+      alreadyCheckedIn: checkedInSet.has(m.id),
+      isSuggested: Boolean(m._isSuggested),
+      isYou: Boolean(m._isYou),
+    })),
+  };
+}
+
 async function findMembersByPhone(phoneNorm) {
   return pool.query(
     `SELECT m.id, m.first_name, m.last_name, m.phone, m.household_id, m.email,
@@ -76,18 +117,43 @@ async function findMembersByPhone(phoneNorm) {
   );
 }
 
-async function getHouseholdMembers(householdId, phoneNorm) {
-  if (householdId) {
-    const hh = await pool.query(
-      `SELECT m.id, m.first_name, m.last_name, m.phone, m.household_id
-       FROM members m
-       WHERE m.household_id = $1 AND LOWER(COALESCE(m.status, 'active')) = 'active'
-       ORDER BY m.first_name, m.last_name`,
-      [householdId]
-    );
-    if (hh.rows.length) return hh.rows;
+async function findMembersBySurname(lastName, excludeIds = []) {
+  const trimmed = (lastName || '').trim();
+  if (trimmed.length < 2) return { rows: [] };
+  return pool.query(
+    `SELECT m.id, m.first_name, m.last_name, m.phone, m.household_id
+     FROM members m
+     WHERE LOWER(COALESCE(m.status, 'active')) = 'active'
+       AND LOWER(TRIM(m.last_name)) = LOWER($1)
+       AND (CARDINALITY($2::int[]) = 0 OR NOT (m.id = ANY($2::int[])))
+     ORDER BY m.first_name, m.last_name
+     LIMIT 25`,
+    [trimmed, excludeIds]
+  );
+}
+
+async function buildSuggestedFamilyFromPhone(phoneMatches) {
+  const byId = new Map();
+  for (const m of phoneMatches) {
+    byId.set(m.id, { ...m, _isYou: true, _isSuggested: false });
   }
-  return (await findMembersByPhone(phoneNorm)).rows;
+
+  const primary = phoneMatches[0];
+  const surnameMatches = await findMembersBySurname(primary.last_name, Array.from(byId.keys()));
+  let hasSurnameSuggestions = false;
+
+  for (const m of surnameMatches.rows) {
+    if (!byId.has(m.id)) {
+      byId.set(m.id, { ...m, _isYou: false, _isSuggested: true });
+      hasSurnameSuggestions = true;
+    }
+  }
+
+  return {
+    members: Array.from(byId.values()),
+    primary,
+    hasSurnameSuggestions,
+  };
 }
 
 // ---- Sunday QR (permanent — no event ID needed) ----
@@ -135,50 +201,88 @@ router.get('/sunday-stats', async (req, res) => {
   }
 });
 
-// Lookup family by phone
+// Lookup family: registered household first, then phone + surname suggestions (user confirms)
 router.post('/lookup-family', async (req, res) => {
   try {
-    const phoneNorm = normalizePhone(req.body.phone);
+    const { phone, family_code } = req.body;
+    const event = await getOrCreateSundayEvent();
+
+    if (family_code) {
+      const code = String(family_code).trim().toUpperCase();
+      const hh = await pool.query(
+        'SELECT * FROM households WHERE UPPER(family_code) = $1',
+        [code]
+      );
+      if (!hh.rows.length) {
+        return res.status(404).json({
+          error: 'Family code not found. Check the code on your family card or visit the welcome desk.',
+        });
+      }
+      const household = hh.rows[0];
+      const members = await getMembersForHousehold(household.id);
+      if (!members.rows.length) {
+        return res.status(404).json({
+          error: 'This household has no members yet. Ask staff to add your family under Households.',
+        });
+      }
+      return res.json(await buildLookupResponse(members.rows, household, event));
+    }
+
+    const phoneNorm = normalizePhone(phone);
     if (phoneNorm.length < 7) {
       return res.status(400).json({ error: 'Please enter a valid phone number (at least 7 digits).' });
+    }
+
+    const byContactPhone = await pool.query(
+      `SELECT * FROM households
+       WHERE LENGTH(REGEXP_REPLACE(COALESCE(contact_phone, ''), '[^0-9]', '', 'g')) >= 7
+         AND RIGHT(REGEXP_REPLACE(COALESCE(contact_phone, ''), '[^0-9]', '', 'g'), 10) = $1`,
+      [phoneNorm]
+    );
+    if (byContactPhone.rows.length) {
+      const household = byContactPhone.rows[0];
+      const members = await getMembersForHousehold(household.id);
+      if (members.rows.length) {
+        return res.json(await buildLookupResponse(members.rows, household, event));
+      }
     }
 
     const matches = await findMembersByPhone(phoneNorm);
     if (!matches.rows.length) {
       return res.status(404).json({
-        error: 'We could not find your number. Please visit the welcome desk to register.',
+        error: 'Number not found. Use your family code, or visit the welcome desk to register.',
       });
     }
 
     const primary = matches.rows[0];
-    const familyRows = await getHouseholdMembers(primary.household_id, phoneNorm);
-    const event = await getOrCreateSundayEvent();
-
-    const checkedIn = await pool.query(
-      'SELECT member_id FROM event_checkins WHERE event_id = $1',
-      [event.id]
-    );
-    const checkedInSet = new Set(checkedIn.rows.map(r => r.member_id));
-
-    const uniqueMembers = new Map();
-    for (const m of familyRows) {
-      uniqueMembers.set(m.id, m);
+    if (primary.household_id) {
+      const members = await getMembersForHousehold(primary.household_id);
+      const hh = await pool.query('SELECT * FROM households WHERE id = $1', [primary.household_id]);
+      const household = hh.rows[0] || { id: primary.household_id, name: primary.household_name || 'Your Household' };
+      if (members.rows.length) {
+        return res.json(await buildLookupResponse(members.rows, {
+          ...household,
+          lookupMode: 'registered',
+          confirmRequired: false,
+        }, event));
+      }
     }
 
-    res.json({
-      householdName: primary.household_name || `${primary.last_name} Family`,
-      primaryMemberId: primary.id,
-      eventId: event.id,
-      serviceDate: event.event_date,
-      serviceTitle: event.title,
-      checkedInToday: checkedIn.rows.length,
-      members: Array.from(uniqueMembers.values()).map(m => ({
-        id: m.id,
-        name: `${m.first_name} ${m.last_name}`.trim(),
-        phone: m.phone,
-        alreadyCheckedIn: checkedInSet.has(m.id),
-      })),
-    });
+    const { members, primary: p, hasSurnameSuggestions } = await buildSuggestedFamilyFromPhone(matches.rows);
+    return res.json(await buildLookupResponse(
+      members,
+      {
+        id: null,
+        name: hasSurnameSuggestions
+          ? `${p.last_name} — confirm your family`
+          : `${p.first_name} ${p.last_name}`,
+        family_code: null,
+        lookupMode: hasSurnameSuggestions ? 'suggested' : 'solo',
+        confirmRequired: hasSurnameSuggestions,
+        surnameHint: hasSurnameSuggestions ? p.last_name : null,
+      },
+      event
+    ));
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

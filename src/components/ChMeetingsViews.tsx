@@ -822,7 +822,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
               </div>
               <h3 className="font-display text-2xl font-bold tracking-tight">Family QR Check-In</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Print this QR at your entrance. Members scan, enter their phone number, and tick everyone in their household — attendance syncs automatically.
+                Print this QR at your entrance. Members scan, enter their phone number, confirm who's in their family, and check in — attendance syncs automatically.
               </p>
               {sundayQr && (
                 <div className="flex flex-wrap gap-3 pt-2">
