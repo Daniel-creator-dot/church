@@ -664,17 +664,17 @@ export default function ChurchLifeViews({
           </div>
         </div>
       )}
-      {/* 2. ONLINE GIVING & TITHE TRANSACTION LEDGER */}
+      {/* 2. GIVING & TITHE RECORDING */}
       {activeSubView === 'Giving' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Record / Payment Form */}
+          {/* Record in-person giving */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6 self-start">
             <div>
               <h2 className="text-xs font-bold text-slate-800 flex items-center gap-2 uppercase tracking-wider">
-                <i className="bi bi-coin text-amber-500 text-base"></i> Online Giving & Tithes
+                <i className="bi bi-coin text-amber-500 text-base"></i> Giving & Tithes
               </h2>
-              <p className="text-[11px] text-slate-500 font-mono">Fill details to log tithes, seed contributions, thanksgiving or project support.</p>
+              <p className="text-[11px] text-slate-500 font-mono">Record in-person tithes, offerings, seed, project, and welfare contributions.</p>
             </div>
 
             <form onSubmit={handleSaveGiving} className="space-y-4">

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Role, Member, ChurchEvent, Household, Fund, PledgeCampaign, Pledge,
   VolunteerRole, VolunteerAssignment, Song, WorshipPlan, Communication,
@@ -98,6 +98,27 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   // Check-in state
   const [checkinEventId, setCheckinEventId] = useState('');
   const [checkinMemberId, setCheckinMemberId] = useState('');
+  const [qrData, setQrData] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number } | null>(null);
+  const [kioskMode, setKioskMode] = useState(false);
+  const [qrLoading, setQrLoading] = useState(false);
+
+  useEffect(() => {
+    if (!checkinEventId) {
+      setQrData(null);
+      return;
+    }
+    const dbId = parseInt(checkinEventId.replace('E-', ''));
+    setQrLoading(true);
+    checkinApi.getQr(dbId)
+      .then((data) => setQrData({
+        qrDataUrl: data.qrDataUrl,
+        checkInUrl: data.checkInUrl,
+        eventTitle: data.eventTitle,
+        checkedInCount: data.checkedInCount,
+      }))
+      .catch(() => setQrData(null))
+      .finally(() => setQrLoading(false));
+  }, [checkinEventId]);
 
   // Household form state
   const [hhName, setHhName] = useState('');
@@ -192,6 +213,23 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       props.onUpdateCommunications([dbCommunicationToFrontend(saved), ...props.communications]);
       setMsgSubject(''); setMsgBody('');
     } catch (e) { console.error(e); }
+  };
+
+  const handleCheckOut = async (checkInId: string) => {
+    try {
+      const dbId = parseInt(checkInId.replace('CI-', ''));
+      await checkinApi.checkOut(dbId);
+      props.onUpdateCheckIns(props.checkIns.map(ci =>
+        ci.id === checkInId ? { ...ci, checkoutTime: new Date().toISOString() } : ci
+      ));
+    } catch (e) { console.error(e); }
+  };
+
+  const copyCheckInLink = () => {
+    if (qrData?.checkInUrl) {
+      navigator.clipboard.writeText(qrData.checkInUrl);
+      alert('Check-in link copied to clipboard!');
+    }
   };
 
   const handleCheckIn = async () => {
@@ -526,39 +564,114 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
 
   // ---- CHECK-IN ----
   if (activeSubView === 'Check-In') {
-    return (
+    const kioskContent = (
       <div className="space-y-6 animate-fade-in">
         <div className="bg-gradient-to-r from-teal-50 to-white p-6 rounded-2xl border border-teal-100">
-          <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-qr-code text-teal-500 mr-2"></i>Event Check-In</h3>
-          <p className="text-sm text-slate-500 mt-1">Quick kiosk check-in for services and events — ChMeetings check-in system.</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-qr-code text-teal-500 mr-2"></i>Event Check-In</h3>
+              <p className="text-sm text-slate-500 mt-1">QR kiosk check-in — members scan to self check-in, or staff check in manually.</p>
+            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setKioskMode(!kioskMode)}
+                className={`text-xs font-bold px-4 py-2 rounded-xl border transition-colors ${kioskMode ? 'bg-teal-600 text-white border-teal-600' : 'border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+              >
+                <i className="bi bi-display mr-1"></i>{kioskMode ? 'Exit Kiosk' : 'Kiosk Mode'}
+              </button>
+            )}
+          </div>
         </div>
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-lg">
-          <select value={checkinEventId} onChange={e => setCheckinEventId(e.target.value)} className="input-elegant w-full">
-            <option value="">Select event</option>
-            {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title} — {ev.date}</option>)}
-          </select>
-          <select value={checkinMemberId} onChange={e => setCheckinMemberId(e.target.value)} className="input-elegant w-full">
-            <option value="">Select member to check in</option>
-            {memberOptions.map(m => <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>)}
-          </select>
-          <button onClick={handleCheckIn} className="btn-primary w-full text-lg py-4">
-            <i className="bi bi-check-circle mr-2"></i>Check In
-          </button>
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* QR Code panel */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h4 className="font-bold text-sm uppercase tracking-wider text-slate-600">Event QR Code</h4>
+            <select value={checkinEventId} onChange={e => setCheckinEventId(e.target.value)} className="input-elegant w-full">
+              <option value="">Select event for QR</option>
+              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title} — {ev.date}</option>)}
+            </select>
+            {qrLoading && <p className="text-sm text-slate-400 text-center">Generating QR...</p>}
+            {qrData && (
+              <div className="text-center space-y-4">
+                <div className="font-semibold text-slate-800">{qrData.eventTitle}</div>
+                <img src={qrData.qrDataUrl} alt="Check-in QR code" className="mx-auto rounded-xl border-4 border-teal-100" width={280} height={280} />
+                <p className="text-xs text-slate-500">Scan with phone camera to check in</p>
+                <div className="text-2xl font-black text-teal-600">{qrData.checkedInCount}</div>
+                <div className="text-[10px] text-slate-400 uppercase">Checked in</div>
+                <div className="flex gap-2 justify-center">
+                  <button type="button" onClick={copyCheckInLink} className="text-xs font-bold px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50">
+                    <i className="bi bi-clipboard mr-1"></i>Copy Link
+                  </button>
+                  <a href={qrData.checkInUrl} target="_blank" rel="noreferrer" className="text-xs font-bold px-3 py-2 rounded-lg border border-teal-200 text-teal-700 hover:bg-teal-50">
+                    <i className="bi bi-box-arrow-up-right mr-1"></i>Open
+                  </a>
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono break-all">{qrData.checkInUrl}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Manual check-in */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h4 className="font-bold text-sm uppercase tracking-wider text-slate-600">Staff Check-In</h4>
+            <select value={checkinEventId} onChange={e => setCheckinEventId(e.target.value)} className="input-elegant w-full">
+              <option value="">Select event</option>
+              {events.map(ev => <option key={ev.id} value={ev.id}>{ev.title} — {ev.date}</option>)}
+            </select>
+            <select value={checkinMemberId} onChange={e => setCheckinMemberId(e.target.value)} className="input-elegant w-full">
+              <option value="">Select member</option>
+              {memberOptions.map(m => <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>)}
+            </select>
+            <button type="button" onClick={handleCheckIn} className="btn-primary w-full text-lg py-4">
+              <i className="bi bi-check-circle mr-2"></i>Check In
+            </button>
+          </div>
         </div>
+
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-          <h4 className="font-bold mb-4">Today's Check-Ins ({props.checkIns.length})</h4>
-          {props.checkIns.map(ci => (
+          <h4 className="font-bold mb-4">Check-In Log ({props.checkIns.length})</h4>
+          {props.checkIns.length === 0 ? (
+            <p className="text-sm text-slate-400">No check-ins yet.</p>
+          ) : props.checkIns.map(ci => (
             <div key={ci.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl mb-2 text-sm">
               <div>
                 <span className="font-medium">{ci.memberName}</span>
                 <span className="text-slate-400 ml-2">— {ci.eventTitle}</span>
+                {ci.familyTag && <span className="text-xs text-teal-600 ml-2">({ci.familyTag})</span>}
+                {ci.checkoutTime && <span className="text-xs text-slate-400 ml-2">· Checked out</span>}
               </div>
-              <span className="text-xs text-teal-600 font-mono">{new Date(ci.checkinTime).toLocaleTimeString()}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-teal-600 font-mono">{new Date(ci.checkinTime).toLocaleTimeString()}</span>
+                {isAdmin && !ci.checkoutTime && (
+                  <button type="button" onClick={() => handleCheckOut(ci.id)} className="text-[10px] font-bold text-slate-500 hover:text-red-500 px-2 py-1 rounded border border-slate-200">
+                    Check Out
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
       </div>
     );
+
+    if (kioskMode && qrData) {
+      return (
+        <div className="fixed inset-0 z-50 bg-teal-600 flex flex-col items-center justify-center p-8 text-white">
+          <button type="button" onClick={() => setKioskMode(false)} className="absolute top-4 right-4 text-white/70 hover:text-white text-sm">
+            <i className="bi bi-x-lg"></i> Exit
+          </button>
+          <h2 className="text-2xl font-bold mb-2">{qrData.eventTitle}</h2>
+          <p className="text-teal-100 mb-8">Scan to check in</p>
+          <img src={qrData.qrDataUrl} alt="QR" className="rounded-2xl bg-white p-4" width={360} height={360} />
+          <div className="mt-8 text-4xl font-black">{qrData.checkedInCount}</div>
+          <div className="text-teal-200 text-sm uppercase tracking-wider">Checked in today</div>
+        </div>
+      );
+    }
+
+    return kioskContent;
   }
 
   // ---- HOUSEHOLDS ----

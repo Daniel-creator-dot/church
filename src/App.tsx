@@ -58,6 +58,8 @@ import LiveStreamView from './components/LiveStreamView';
 import BookstoreView from './components/BookstoreView';
 import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
+import PublicCheckInView from './components/PublicCheckInView';
+import PublicFormView from './components/PublicFormView';
 import LoginView from './components/LoginView';
 import ChMeetingsViews from './components/ChMeetingsViews';
 import {
@@ -484,10 +486,22 @@ export default function App() {
   };
 
   const formatCurrency = (amount: number) => `${currencySymbol}${amount.toLocaleString()}`;
-  const isVisitorSignupView = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'visitor-signup';
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const publicView = searchParams?.get('view');
+  const isVisitorSignupView = publicView === 'visitor-signup';
+  const isPublicCheckInView = publicView === 'checkin';
+  const isPublicFormView = publicView === 'form';
 
   if (isVisitorSignupView) {
     return <VisitorSignupView />;
+  }
+
+  if (isPublicCheckInView) {
+    return <PublicCheckInView />;
+  }
+
+  if (isPublicFormView) {
+    return <PublicFormView />;
   }
 
   // Show login screen if not authenticated

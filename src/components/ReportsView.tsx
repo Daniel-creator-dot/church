@@ -8,6 +8,7 @@ import {
   FinanceTransaction, 
   Role 
 } from '../types';
+import { downloadCsv } from '../utils/export';
 
 interface ReportsViewProps {
   activeRole: Role;
@@ -178,6 +179,22 @@ export default function ReportsView({
     ? [...attendance].sort((a, b) => b.headcount - a.headcount)[0]
     : null;
 
+  const exportGivingStatement = () => {
+    downloadCsv(
+      `giving-statement-${new Date().toISOString().split('T')[0]}.csv`,
+      ['Date', 'Donor', 'Type', 'Amount', 'Payment Method', 'Receipt'],
+      giving.map((g) => [g.date, g.donorName, g.type, String(g.amount), g.paymentMethod, g.receiptNumber])
+    );
+  };
+
+  const exportAttendanceReport = () => {
+    downloadCsv(
+      `attendance-report-${new Date().toISOString().split('T')[0]}.csv`,
+      ['Date', 'Service Type', 'Headcount', 'Notes'],
+      attendance.map((a) => [a.date, a.serviceType, String(a.headcount), a.notes])
+    );
+  };
+
   return (
     <div className="space-y-8 animate-fade-in">
       
@@ -215,13 +232,29 @@ export default function ReportsView({
         </div>
 
         {isFinanceOfficerOrAdmin && (
-          <button 
-            id="gen-exec-pdf-btn"
-            onClick={() => setShowExecutivePrintout(true)}
-            className="btn-primary w-full sm:w-auto text-xs flex items-center justify-center gap-1.5"
-          >
-            <i className="bi bi-printer text-amber-500 text-sm"></i> Print Executive Briefing
-          </button>
+          <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={exportGivingStatement}
+              className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-1"
+            >
+              <i className="bi bi-download"></i> Giving CSV
+            </button>
+            <button
+              type="button"
+              onClick={exportAttendanceReport}
+              className="text-xs font-bold px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 flex items-center gap-1"
+            >
+              <i className="bi bi-download"></i> Attendance CSV
+            </button>
+            <button 
+              id="gen-exec-pdf-btn"
+              onClick={() => setShowExecutivePrintout(true)}
+              className="btn-primary text-xs flex items-center justify-center gap-1.5"
+            >
+              <i className="bi bi-printer text-amber-500 text-sm"></i> Print Executive Briefing
+            </button>
+          </div>
         )}
       </div>
 

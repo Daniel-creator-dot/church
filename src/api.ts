@@ -262,7 +262,9 @@ export const financeApi = {
 
 export const checkinApi = {
   getAll: (eventId?: number) => apiCall(eventId ? `/checkin?event_id=${eventId}` : '/checkin'),
+  getQr: (eventId: number) => apiCall(`/checkin/qr/${eventId}`),
   checkIn: (data: any) => apiCall('/checkin', { method: 'POST', body: JSON.stringify(data) }),
+  publicCheckIn: (data: any) => apiCall('/checkin/public', { method: 'POST', body: JSON.stringify(data) }),
   checkOut: (id: number) => apiCall(`/checkin/${id}/checkout`, { method: 'PUT' }),
 };
 
