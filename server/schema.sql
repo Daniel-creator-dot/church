@@ -370,6 +370,26 @@ CREATE INDEX IF NOT EXISTS idx_pledges_campaign ON pledges(campaign_id);
 CREATE INDEX IF NOT EXISTS idx_volunteer_assignments_date ON volunteer_assignments(assignment_date);
 CREATE INDEX IF NOT EXISTS idx_worship_plans_date ON worship_plans(service_date);
 CREATE INDEX IF NOT EXISTS idx_communications_sent ON communications(sent_at);
+
+-- SMS outbox (stub now; Twilio when MESSAGING_PROVIDER=twilio)
+CREATE TABLE IF NOT EXISTS message_outbox (
+  id SERIAL PRIMARY KEY,
+  channel VARCHAR(20) NOT NULL DEFAULT 'sms',
+  recipient VARCHAR(255) NOT NULL,
+  subject VARCHAR(255),
+  body TEXT NOT NULL,
+  status VARCHAR(50) DEFAULT 'queued',
+  provider VARCHAR(50) DEFAULT 'stub',
+  provider_message_id VARCHAR(255),
+  error_message TEXT,
+  reference_type VARCHAR(50),
+  reference_id INTEGER,
+  sent_by VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  sent_at TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_message_outbox_status ON message_outbox(status);
+CREATE INDEX IF NOT EXISTS idx_message_outbox_created ON message_outbox(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_finance_transactions_date ON finance_transactions(transaction_date);
 CREATE INDEX IF NOT EXISTS idx_event_checkins_event ON event_checkins(event_id);
 

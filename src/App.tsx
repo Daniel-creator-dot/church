@@ -61,6 +61,7 @@ import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
 import PublicCheckInView from './components/PublicCheckInView';
 import SundayCheckInView from './components/SundayCheckInView';
+import WelcomeDeskKioskView from './components/WelcomeDeskKioskView';
 import PublicFormView from './components/PublicFormView';
 import MemberDirectoryView from './components/MemberDirectoryView';
 import LoginView from './components/LoginView';
@@ -536,10 +537,15 @@ export default function App() {
   const isVisitorSignupView = publicView === 'visitor-signup';
   const isPublicCheckInView = publicView === 'checkin';
   const isSundayCheckInView = publicView === 'sunday-checkin';
+  const isWelcomeDeskView = publicView === 'welcome-desk';
   const isPublicFormView = publicView === 'form';
 
   if (isVisitorSignupView) {
     return <VisitorSignupView />;
+  }
+
+  if (isWelcomeDeskView) {
+    return <WelcomeDeskKioskView showExit={false} />;
   }
 
   if (isSundayCheckInView) {
@@ -660,7 +666,7 @@ export default function App() {
               <i className="bi bi-box-arrow-right"></i>
             </button>
           </div>
-          <div className="text-center text-[9px] text-slate-600 font-mono">v2.8.0</div>
+          <div className="text-center text-[9px] text-slate-600 font-mono">v2.9.0</div>
         </div>
       </aside>
 

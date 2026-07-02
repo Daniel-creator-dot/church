@@ -6,7 +6,7 @@ import {
 } from '../types';
 import {
   fundsApi, pledgesApi, volunteersApi, worshipApi,
-  communicationsApi, formsApi, financeApi, checkinApi
+  communicationsApi, formsApi, financeApi, checkinApi, messagingApi
 } from '../api';
 import {
   dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
@@ -18,6 +18,7 @@ import {
 import { getTodayString } from '../utils/date';
 import { printSundayBulletin } from '../utils/bulletin';
 import HouseholdManagerView from './HouseholdManagerView';
+import WelcomeDeskKioskView from './WelcomeDeskKioskView';
 
 type ChMeetingsSubView =
   | 'Calendar' | 'Volunteers' | 'Worship Planning' | 'Pledges & Funds'
@@ -93,8 +94,11 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [itemDuration, setItemDuration] = useState(5);
   const [itemAssignedTo, setItemAssignedTo] = useState('');
   const [itemNotes, setItemNotes] = useState('');
-  const [reminderResult, setReminderResult] = useState<{ count: number; reminders: { memberName: string; email: string; mailto: string; assignmentDate: string; roleName: string }[] } | null>(null);
+  const [reminderResult, setReminderResult] = useState<{ count: number; channel?: string; sent?: number; reminders: { memberName: string; email?: string; phone?: string; mailto?: string; assignmentDate: string; roleName: string; status?: string }[] } | null>(null);
   const [reminderLoading, setReminderLoading] = useState(false);
+  const [smsReminderLoading, setSmsReminderLoading] = useState(false);
+  const [messagingConfig, setMessagingConfig] = useState<{ provider: string; ready: boolean; message: string } | null>(null);
+  const [smsOutbox, setSmsOutbox] = useState<{ id: number; recipient: string; body: string; status: string; created_at: string }[]>([]);
 
   // Pledge form state
   const [campaignName, setCampaignName] = useState('');
@@ -116,6 +120,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [qrData, setQrData] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number } | null>(null);
   const [sundayQr, setSundayQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [kioskMode, setKioskMode] = useState(false);
+  const [welcomeDeskKiosk, setWelcomeDeskKiosk] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
   const [sundayQrLoading, setSundayQrLoading] = useState(false);
 
@@ -131,6 +136,11 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       }))
       .catch(() => setSundayQr(null))
       .finally(() => setSundayQrLoading(false));
+  }, []);
+
+  useEffect(() => {
+    messagingApi.getConfig().then(setMessagingConfig).catch(() => setMessagingConfig(null));
+    messagingApi.getOutbox(20).then(setSmsOutbox).catch(() => setSmsOutbox([]));
   }, []);
 
   useEffect(() => {
@@ -268,6 +278,20 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
     finally { setReminderLoading(false); }
   };
 
+  const handleSendVolunteerSmsReminders = async () => {
+    setSmsReminderLoading(true);
+    setReminderResult(null);
+    try {
+      const result = await volunteersApi.sendSmsReminders({ days: 7, sent_by: userEmail });
+      setReminderResult(result);
+      const refreshed = await volunteersApi.getAssignments();
+      props.onUpdateVolunteerAssignments(refreshed.map(dbVolunteerAssignmentToFrontend));
+      const outbox = await messagingApi.getOutbox(20);
+      setSmsOutbox(outbox);
+    } catch (e) { console.error(e); alert(e instanceof Error ? e.message : 'Failed to queue SMS reminders'); }
+    finally { setSmsReminderLoading(false); }
+  };
+
   const handleCreateFund = async () => {
     if (!fundName) return;
     try {
@@ -307,7 +331,17 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       });
       props.onUpdateCommunications([dbCommunicationToFrontend(saved), ...props.communications]);
       setMsgSubject(''); setMsgBody('');
-    } catch (e) { console.error(e); }
+      if (msgChannel === 'sms') {
+        const outbox = await messagingApi.getOutbox(20);
+        setSmsOutbox(outbox);
+        if (saved.bulkResult) {
+          alert(`SMS queued for ${saved.bulkResult.sent} of ${saved.bulkResult.count} recipients (stub mode until Twilio is configured).`);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      alert(e instanceof Error ? e.message : 'Failed to send message');
+    }
   };
 
   const handleCheckOut = async (checkInId: string) => {
@@ -430,33 +464,63 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-people-fill text-amber-500 mr-2"></i>Volunteer Scheduling</h3>
-              <p className="text-sm text-slate-500 mt-1">Schedule volunteers and send email reminders for upcoming assignments.</p>
+              <p className="text-sm text-slate-500 mt-1">Schedule volunteers. Email reminders open your mail client; SMS reminders queue via messaging service (Twilio-ready).</p>
             </div>
             {isAdmin && (
-              <button
-                type="button"
-                onClick={handleSendVolunteerReminders}
-                disabled={reminderLoading}
-                className="btn-primary text-xs flex items-center gap-2"
-              >
-                <i className="bi bi-envelope"></i>
-                {reminderLoading ? 'Sending...' : 'Send 7-Day Reminders'}
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendVolunteerReminders}
+                  disabled={reminderLoading || smsReminderLoading}
+                  className="btn-primary text-xs flex items-center gap-2"
+                >
+                  <i className="bi bi-envelope"></i>
+                  {reminderLoading ? 'Sending...' : 'Email Reminders'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendVolunteerSmsReminders}
+                  disabled={reminderLoading || smsReminderLoading}
+                  className="text-xs font-bold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 flex items-center gap-2 disabled:opacity-50"
+                >
+                  <i className="bi bi-chat-dots"></i>
+                  {smsReminderLoading ? 'Queuing...' : 'SMS Reminders'}
+                </button>
+              </div>
             )}
           </div>
+          {messagingConfig && (
+            <p className="text-xs text-amber-700 mt-3 flex items-center gap-2">
+              <i className="bi bi-info-circle"></i>
+              SMS provider: <span className="font-mono font-bold">{messagingConfig.provider}</span> — {messagingConfig.message}
+            </p>
+          )}
         </div>
         {reminderResult && (
           <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl space-y-3">
             <div className="font-bold text-emerald-800">
               <i className="bi bi-check-circle mr-2"></i>
-              {reminderResult.count} reminder{reminderResult.count !== 1 ? 's' : ''} logged
+              {reminderResult.count} {reminderResult.channel === 'sms' ? 'SMS' : 'email'} reminder{reminderResult.count !== 1 ? 's' : ''}
+              {reminderResult.channel === 'sms' && reminderResult.sent !== undefined && (
+                <span className="font-normal text-emerald-700"> · {reminderResult.sent} queued</span>
+              )}
             </div>
-            <p className="text-xs text-emerald-700">Reminders saved to Communications. Click a volunteer to open your email client:</p>
+            <p className="text-xs text-emerald-700">
+              {reminderResult.channel === 'sms'
+                ? 'Messages saved to SMS outbox. They will send automatically when Twilio API is configured.'
+                : 'Reminders saved to Communications. Click a volunteer to open your email client:'}
+            </p>
             <div className="flex flex-wrap gap-2">
               {reminderResult.reminders.map((r, i) => (
-                <a key={i} href={r.mailto} className="text-xs font-bold px-3 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100">
-                  {r.memberName} · {r.assignmentDate}
-                </a>
+                r.mailto ? (
+                  <a key={i} href={r.mailto} className="text-xs font-bold px-3 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100">
+                    {r.memberName} · {r.assignmentDate}
+                  </a>
+                ) : (
+                  <span key={i} className="text-xs font-bold px-3 py-2 rounded-xl bg-white border border-violet-200 text-violet-800">
+                    {r.memberName} · {r.phone} · {r.status}
+                  </span>
+                )
               ))}
             </div>
           </div>
@@ -762,8 +826,17 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       <div className="space-y-6 animate-fade-in">
         <div className="bg-gradient-to-r from-blue-50 to-white p-6 rounded-2xl border border-blue-100">
           <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-envelope-fill text-blue-500 mr-2"></i>Communications</h3>
-          <p className="text-sm text-slate-500 mt-1">Send bulk email, SMS, or push notifications to groups.</p>
+          <p className="text-sm text-slate-500 mt-1">Send bulk email or SMS. SMS messages queue in outbox until Twilio API is connected.</p>
         </div>
+        {messagingConfig && (
+          <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-sm text-violet-800 flex items-start gap-2">
+            <i className="bi bi-chat-dots-fill shrink-0 mt-0.5"></i>
+            <div>
+              <span className="font-bold">SMS: {messagingConfig.provider}</span>
+              <span className="text-violet-600"> — {messagingConfig.message}</span>
+            </div>
+          </div>
+        )}
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h4 className="font-bold text-sm uppercase text-slate-600">Compose Message</h4>
@@ -776,8 +849,35 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
               </select>
             </div>
             <input value={msgSubject} onChange={e => setMsgSubject(e.target.value)} placeholder="Subject" className="input-elegant w-full" />
-            <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder="Message body..." rows={4} className="input-elegant w-full" />
-            <button onClick={handleSendMessage} className="btn-primary w-full"><i className="bi bi-send mr-2"></i>Send Message</button>
+            <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder={msgChannel === 'sms' ? 'SMS message (keep under 160 chars)...' : 'Message body...'} rows={4} className="input-elegant w-full" />
+            {msgChannel === 'sms' && (
+              <p className="text-xs text-violet-600">SMS will be queued for all members with phone numbers. Connect Twilio later to send automatically.</p>
+            )}
+            <button onClick={handleSendMessage} className="btn-primary w-full"><i className="bi bi-send mr-2"></i>{msgChannel === 'sms' ? 'Queue SMS' : 'Send Message'}</button>
+          </div>
+        )}
+        {smsOutbox.length > 0 && (
+          <div className="bg-white p-6 rounded-2xl border border-violet-100 shadow-sm">
+            <h4 className="font-bold mb-1 flex items-center gap-2">
+              <i className="bi bi-inbox text-violet-500"></i> SMS Outbox
+            </h4>
+            <p className="text-xs text-slate-500 mb-4">Recent queued messages — ready for Twilio API</p>
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {smsOutbox.map(row => (
+                <div key={row.id} className="p-3 bg-slate-50 rounded-xl text-sm flex justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="font-mono text-xs text-slate-600">{row.recipient}</div>
+                    <div className="text-slate-500 truncate">{row.body}</div>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase shrink-0 px-2 py-1 rounded-lg h-fit ${
+                    row.status === 'stub' ? 'bg-amber-100 text-amber-700' :
+                    row.status === 'sent' ? 'bg-emerald-100 text-emerald-700' :
+                    row.status === 'failed' ? 'bg-rose-100 text-rose-700' :
+                    'bg-slate-200 text-slate-600'
+                  }`}>{row.status}</span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -821,6 +921,9 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
                   <a href={sundayQr.checkInUrl} target="_blank" rel="noreferrer" className="text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors">
                     <i className="bi bi-phone mr-1"></i> Preview Mobile
                   </a>
+                  <button type="button" onClick={() => setWelcomeDeskKiosk(true)} className="text-xs font-bold px-4 py-2 rounded-xl bg-white/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/10 transition-colors">
+                    <i className="bi bi-display mr-1"></i> Welcome Desk Kiosk
+                  </button>
                   <button type="button" onClick={() => window.print()} className="text-xs font-bold px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
                     <i className="bi bi-printer mr-1"></i> Print Poster
                   </button>
@@ -934,6 +1037,10 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
         </div>
       </div>
     );
+
+    if (welcomeDeskKiosk) {
+      return <WelcomeDeskKioskView onExit={() => setWelcomeDeskKiosk(false)} />;
+    }
 
     if (kioskMode && qrData) {
       return (

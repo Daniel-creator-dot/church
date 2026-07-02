@@ -241,6 +241,7 @@ export const volunteersApi = {
   createAssignment: (data: any) => apiCall('/volunteers/assignments', { method: 'POST', body: JSON.stringify(data) }),
   updateAssignment: (id: number, data: any) => apiCall(`/volunteers/assignments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   sendReminders: (data: { days?: number; sent_by: string }) => apiCall('/volunteers/remind', { method: 'POST', body: JSON.stringify(data) }),
+  sendSmsReminders: (data: { days?: number; sent_by: string }) => apiCall('/volunteers/remind-sms', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const worshipApi = {
@@ -285,6 +286,11 @@ export const checkinApi = {
   checkIn: (data: any) => apiCall('/checkin', { method: 'POST', body: JSON.stringify(data) }),
   publicCheckIn: (data: any) => apiCall('/checkin/public', { method: 'POST', body: JSON.stringify(data) }),
   checkOut: (id: number) => apiCall(`/checkin/${id}/checkout`, { method: 'PUT' }),
+};
+
+export const messagingApi = {
+  getConfig: () => apiCall('/messaging/config'),
+  getOutbox: (limit?: number) => apiCall(limit ? `/messaging/outbox?limit=${limit}` : '/messaging/outbox'),
 };
 
 // Auth API
