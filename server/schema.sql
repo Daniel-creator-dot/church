@@ -365,3 +365,47 @@ CREATE INDEX IF NOT EXISTS idx_worship_plans_date ON worship_plans(service_date)
 CREATE INDEX IF NOT EXISTS idx_communications_sent ON communications(sent_at);
 CREATE INDEX IF NOT EXISTS idx_finance_transactions_date ON finance_transactions(transaction_date);
 CREATE INDEX IF NOT EXISTS idx_event_checkins_event ON event_checkins(event_id);
+
+-- ========== Innovation modules ==========
+
+-- Prayer wall enhancements
+ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'General';
+ALTER TABLE prayer_requests ADD COLUMN IF NOT EXISTS prayed_count INTEGER DEFAULT 0;
+
+-- Small groups / cell fellowship
+CREATE TABLE IF NOT EXISTS small_groups (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  leader_id INTEGER REFERENCES members(id),
+  leader_name VARCHAR(255),
+  meeting_day VARCHAR(20),
+  meeting_time VARCHAR(20),
+  location VARCHAR(255),
+  max_members INTEGER DEFAULT 12,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS group_members (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER REFERENCES small_groups(id) ON DELETE CASCADE,
+  member_id INTEGER REFERENCES members(id),
+  role VARCHAR(50) DEFAULT 'Member',
+  joined_date DATE DEFAULT CURRENT_DATE,
+  UNIQUE(group_id, member_id)
+);
+
+CREATE TABLE IF NOT EXISTS group_meetings (
+  id SERIAL PRIMARY KEY,
+  group_id INTEGER REFERENCES small_groups(id) ON DELETE CASCADE,
+  meeting_date DATE NOT NULL,
+  topic VARCHAR(255),
+  attendance_count INTEGER DEFAULT 0,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_small_groups_active ON small_groups(is_active);
+CREATE INDEX IF NOT EXISTS idx_group_members_group ON group_members(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_meetings_date ON group_meetings(meeting_date);

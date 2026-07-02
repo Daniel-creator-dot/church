@@ -23,10 +23,11 @@ import {
   User,
   Household, Fund, PledgeCampaign, Pledge,
   VolunteerRole, VolunteerAssignment, Song, WorshipPlan,
-  Communication, CustomForm, CheckInRecord
+  Communication, CustomForm, CheckInRecord,
+  DashboardInsights,
 } from './types';
 
-import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi } from './api';
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi, insightsApi } from './api';
 import { 
   dbMemberToFrontend, 
   frontendMemberToDb,
@@ -63,6 +64,9 @@ import PublicFormView from './components/PublicFormView';
 import MemberDirectoryView from './components/MemberDirectoryView';
 import LoginView from './components/LoginView';
 import ChMeetingsViews from './components/ChMeetingsViews';
+import CommandPalette from './components/CommandPalette';
+import SmallGroupsView from './components/SmallGroupsView';
+import PrayerWallView from './components/PrayerWallView';
 import {
   dbHouseholdToFrontend, dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
   dbVolunteerRoleToFrontend, dbVolunteerAssignmentToFrontend, dbSongToFrontend,
@@ -71,6 +75,7 @@ import {
 } from './chMeetingsMapper';
 
 const CHMEETINGS_TABS = ['Calendar', 'Volunteers', 'Worship Planning', 'Pledges & Funds', 'Communications', 'Check-In', 'Households', 'Forms', 'Accounting'];
+const INNOVATION_TABS = ['Small Groups', 'Prayer Wall'];
 
 // Map database roles to frontend roles
 const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
@@ -88,24 +93,24 @@ const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
 };
 
 const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
-  const baseSuperAdmin = ['Dashboard', 'Churches', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings', ...CHMEETINGS_TABS];
+  const baseSuperAdmin = ['Dashboard', 'Churches', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings', ...CHMEETINGS_TABS, ...INNOVATION_TABS];
   if (role === 'Super Admin') return baseSuperAdmin.includes(tabName);
   if (role === 'Admin') return baseSuperAdmin.filter(t => t !== 'Churches').includes(tabName);
   if (tabName === 'Churches') return false;
 
   switch (role) {
     case 'Pastor':
-      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
+      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting', 'Small Groups', 'Prayer Wall'].includes(tabName);
     case 'Church Administrator':
-      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
+      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting', 'Small Groups', 'Prayer Wall'].includes(tabName);
     case 'Finance Officer':
       return ['Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Department Leader':
-      return ['Dashboard', 'Directory', 'Attendance', 'Departments', 'Follow Up', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Calendar', 'Volunteers', 'Check-In'].includes(tabName);
+      return ['Dashboard', 'Directory', 'Attendance', 'Departments', 'Follow Up', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Calendar', 'Volunteers', 'Check-In', 'Small Groups', 'Prayer Wall'].includes(tabName);
     case 'Media':
-      return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional', 'Worship Planning', 'Calendar'].includes(tabName);
+      return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional', 'Worship Planning', 'Calendar', 'Prayer Wall'].includes(tabName);
     case 'Member':
-      return ['Dashboard', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Directory', 'Calendar', 'Pledges & Funds', 'Forms'].includes(tabName);
+      return ['Dashboard', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Directory', 'Calendar', 'Pledges & Funds', 'Forms', 'Prayer Wall', 'Small Groups'].includes(tabName);
     default:
       return false;
   }
@@ -173,6 +178,8 @@ export default function App() {
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [apiStatus, setApiStatus] = useState<'connected' | 'degraded' | 'offline'>('connected');
+  const [insights, setInsights] = useState<DashboardInsights | null>(null);
+  const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
 
   // Restore session on mount
   useEffect(() => {
@@ -293,6 +300,9 @@ export default function App() {
       const financeData = await track('finance', () => financeApi.getAll(), []);
       setTransactions(financeData.map(dbFinanceToFrontend));
 
+      const insightsData = await track('insights', () => insightsApi.getDashboard(), null);
+      if (insightsData) setInsights(insightsData as DashboardInsights);
+
       if (failures > 3) setApiStatus('offline');
       setIsLoading(false);
     };
@@ -310,6 +320,17 @@ export default function App() {
     updateTime();
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setCommandPaletteOpen(open => !open);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
   }, []);
 
   // 2. STATE UPDATE FUNCTIONS (API-based for members, events, donations)
@@ -441,6 +462,8 @@ export default function App() {
     { name: 'Devotional', icon: 'bi-book', viewGroup: 'Church Life' },
     { name: 'Bookstore', icon: 'bi-book-half', viewGroup: 'Church Life' },
     { name: 'Media', icon: 'bi-image', viewGroup: 'Church Life' },
+    { name: 'Prayer Wall', icon: 'bi-heart-pulse', viewGroup: 'Church Life' },
+    { name: 'Small Groups', icon: 'bi-diagram-3', viewGroup: 'Church Life' },
 
     // ChMeetings-inspired modules
     { name: 'Calendar', icon: 'bi-calendar3', viewGroup: 'ChMeetings' },
@@ -465,7 +488,9 @@ export default function App() {
     } else if (actionType === 'record-giving') {
       setActiveTab('Giving');
     } else if (actionType === 'submit-prayer') {
-      setActiveTab('Prayer Requests');
+      setActiveTab('Prayer Wall');
+    } else if (actionType === 'checkin') {
+      setActiveTab('Check-In');
     }
   };
 
@@ -620,7 +645,7 @@ export default function App() {
             </button>
           </div>
           <div className="bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 p-2 text-center text-[10px] text-slate-500 font-mono rounded-lg">
-            <span className="text-[#F59E0B] font-bold">V.2.4.0</span> Stable
+            <span className="text-[#F59E0B] font-bold">V.2.5.0</span> Stable
           </div>
         </div>
       </aside>
@@ -649,7 +674,15 @@ export default function App() {
 
           {/* Role Based Access Switcher Component - PROACTIVE SELECTION */}
           <div className="flex items-center gap-3">
-            {/* Mobile simplified badge */}
+            <button
+              type="button"
+              onClick={() => setCommandPaletteOpen(true)}
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-500 hover:border-amber-300 hover:text-slate-700 transition-colors"
+            >
+              <i className="bi bi-search"></i>
+              <span>Quick search</span>
+              <kbd className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">Ctrl K</kbd>
+            </button>
             <div className="bg-gradient-to-r from-slate-100 to-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-700 flex items-center gap-1 shadow-sm">
               <i className="bi bi-crown-fill text-sm text-amber-500"></i> {activeRole}
             </div>
@@ -687,6 +720,20 @@ export default function App() {
               currencySymbol={currencySymbol}
               currencyCode={currencyCode}
               formatCurrency={formatCurrency}
+              insights={insights}
+            />
+          )}
+
+          {!isLoading && activeTab === 'Small Groups' && (
+            <SmallGroupsView activeRole={activeRole} members={members} />
+          )}
+
+          {!isLoading && activeTab === 'Prayer Wall' && (
+            <PrayerWallView
+              activeRole={activeRole}
+              userName={members.find(m => m.email === currentUserEmail)?.name}
+              userEmail={currentUserEmail}
+              onPrayersUpdate={(p) => setPrayerRequests(prev => [...p, ...prev])}
             />
           )}
 
@@ -846,6 +893,15 @@ export default function App() {
         </main>
       </div>
 
+      <CommandPalette
+        isOpen={commandPaletteOpen}
+        onClose={() => setCommandPaletteOpen(false)}
+        navItems={sidebarNavItems
+          .filter(item => isTabAllowedForRole(item.name, activeRole))
+          .map(item => ({ name: item.name, icon: item.icon, group: item.viewGroup }))}
+        onNavigate={setActiveTab}
+        onQuickAction={handleQuickAction}
+      />
     </div>
   );
 }

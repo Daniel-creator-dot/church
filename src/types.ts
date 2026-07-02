@@ -126,6 +126,7 @@ export interface Announcement {
 }
 
 export type PrayerRequestStatus = 'Pending' | 'Prayed For' | 'Followed Up';
+export type PrayerCategory = 'General' | 'Healing' | 'Family' | 'Financial' | 'Salvation' | 'Guidance' | 'Thanksgiving';
 
 export interface PrayerRequest {
   id: string;
@@ -136,6 +137,8 @@ export interface PrayerRequest {
   status: PrayerRequestStatus;
   date: string; // YYYY-MM-DD
   notes?: string;
+  category?: PrayerCategory;
+  prayedCount?: number;
 }
 
 export type FollowUpCategory = 'Visitor' | 'Sick Visitation' | 'Inactive Member' | 'Counseling' | 'New Convert' | 'Home Visit';
@@ -376,5 +379,55 @@ export interface CheckInRecord {
   checkinTime: string;
   checkoutTime?: string;
   familyTag?: string;
+}
+
+// Innovation modules
+
+export interface SmallGroup {
+  id: string;
+  name: string;
+  description: string;
+  leaderId?: string;
+  leaderName: string;
+  meetingDay: string;
+  meetingTime: string;
+  location: string;
+  maxMembers: number;
+  isActive: boolean;
+  memberCount?: number;
+}
+
+export interface GroupMember {
+  id: string;
+  groupId: string;
+  memberId: string;
+  memberName: string;
+  email: string;
+  phone: string;
+  role: string;
+  joinedDate: string;
+}
+
+export interface GroupMeeting {
+  id: string;
+  groupId: string;
+  meetingDate: string;
+  topic: string;
+  attendanceCount: number;
+  notes: string;
+}
+
+export interface DashboardInsights {
+  monthlyGiving: number;
+  lastMonthGiving: number;
+  givingChangePercent: number;
+  visitorFunnel: { status: string; count: number }[];
+  actionItems: { type: string; label: string; count: number; tab: string }[];
+  volunteerSchedule: { assignment_date: string; role_name: string; assigned: number }[];
+  attendanceTrend: { date: string; serviceType: string; headcount: number }[];
+  atRiskMembers: { id: number; name: string; email: string; phone: string }[];
+  upcomingBirthdays: { id: number; name: string; birthday: string }[];
+  smallGroups: { total_groups: number; total_members: number };
+  topEngaged: { id: number; name: string; checkins: number; recentGiving: number }[];
 }
 

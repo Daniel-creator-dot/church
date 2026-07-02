@@ -367,7 +367,9 @@ export function dbPrayerToFrontend(db: any): PrayerRequest {
     isPrivate: db.is_private || false,
     status: db.status || 'Pending',
     date: db.request_date?.split('T')[0] || '',
-    notes: db.notes || ''
+    notes: db.notes || '',
+    category: db.category || 'General',
+    prayedCount: db.prayed_count || 0,
   };
 }
 
@@ -379,7 +381,8 @@ export function frontendPrayerToDb(prayer: PrayerRequest): any {
     is_private: prayer.isPrivate,
     status: prayer.status,
     request_date: prayer.date,
-    notes: prayer.notes
+    notes: prayer.notes,
+    category: prayer.category || 'General',
   };
 }
 

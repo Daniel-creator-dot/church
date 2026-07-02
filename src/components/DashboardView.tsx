@@ -7,7 +7,8 @@ import {
   Announcement, 
   PrayerRequest, 
   AttendanceRecord,
-  Role 
+  Role,
+  DashboardInsights,
 } from '../types';
 
 interface DashboardProps {
@@ -26,6 +27,7 @@ interface DashboardProps {
   currencySymbol?: string;
   currencyCode?: string;
   formatCurrency?: (amount: number) => string;
+  insights?: DashboardInsights | null;
 }
 
 const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
@@ -90,6 +92,7 @@ export default function DashboardView({
   currencySymbol = '$',
   currencyCode = 'USD',
   formatCurrency = (amount: number) => `${currencySymbol}${amount.toLocaleString()}`,
+  insights,
 }: DashboardProps) {
   // Filter giving records based on role - members only see their own giving
   const filteredGiving = activeRole === 'Member' && currentMemberId
@@ -101,14 +104,19 @@ export default function DashboardView({
   const activeMembers = members.filter(m => m.membershipStatus === 'Active').length;
   const pendingVisitors = visitors.filter(v => v.status !== 'Converted' && v.status !== 'Lost').length;
   
-  // Total Giving (Tithe + Offering + Project + Welfare + thanksgiving + seed)
-  const totalGiving = filteredGiving.reduce((sum, g) => sum + g.amount, 0);
+  // Total Giving — prefer API monthly figure for leaders, else filter locally
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const monthlyGivingLocal = filteredGiving
+    .filter(g => new Date(g.date) >= monthStart)
+    .reduce((sum, g) => sum + g.amount, 0);
+  const totalGiving = insights?.monthlyGiving ?? monthlyGivingLocal;
+  const givingChange = insights?.givingChangePercent ?? 0;
   
   // Pending Prayer requests
   const pendingPrayers = prayerRequests.filter(p => p.status === 'Pending').length;
   
   // Next upcoming event
-  const now = new Date();
   const upcomingEvents = events
     .filter(e => new Date(e.date) >= now)
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -177,9 +185,9 @@ export default function DashboardView({
     {
       id: 'kpi-giving',
       name: 'Giving',
-      label: "Month's Giving",
+      label: "This Month's Giving",
       value: formatCurrency(totalGiving),
-      subValue: 'Synced Ledger',
+      subValue: givingChange !== 0 ? `${givingChange > 0 ? '+' : ''}${givingChange}% vs last month` : 'Synced Ledger',
       icon: 'bi-coin',
       bgColor: 'bg-[#FFFBEB] border-amber-100',
       iconColor: 'text-[#F59E0B]'
@@ -303,6 +311,100 @@ export default function DashboardView({
           );
         })}
       </div>
+
+      {/* Smart Ministry Insights — leaders only */}
+      {isLeader && insights && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
+                  <i className="bi bi-lightning-charge text-amber-500"></i> Smart Action Center
+                </h3>
+                <p className="text-xs text-slate-400">Prioritized tasks based on live church data</p>
+              </div>
+            </div>
+            {insights.actionItems.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {insights.actionItems.map(item => (
+                  <button
+                    key={item.type}
+                    type="button"
+                    onClick={() => onNavigate(item.tab)}
+                    className="flex items-center gap-3 p-4 bg-gradient-to-r from-amber-50 to-white border border-amber-100 rounded-xl text-left hover:border-amber-300 transition-all group"
+                  >
+                    <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center text-amber-700 font-bold text-lg group-hover:scale-110 transition-transform">
+                      {item.count}
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{item.label}</p>
+                      <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider">Take action →</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-emerald-600 bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                <i className="bi bi-check-circle mr-2"></i>All caught up — no urgent actions right now.
+              </p>
+            )}
+
+            {insights.visitorFunnel.length > 0 && (
+              <div className="pt-4 border-t border-slate-100">
+                <h4 className="text-[10px] font-bold uppercase text-slate-500 mb-3">Visitor Journey Pipeline</h4>
+                <div className="flex flex-wrap gap-2">
+                  {insights.visitorFunnel.map(v => (
+                    <div key={v.status} className="flex-1 min-w-[100px] p-3 bg-slate-50 rounded-xl text-center border border-slate-100">
+                      <div className="text-xl font-bold text-slate-800">{v.count}</div>
+                      <div className="text-[10px] text-slate-500 uppercase font-semibold">{v.status}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-6">
+            {insights.atRiskMembers.length > 0 && (
+              <div className="bg-white p-5 rounded-2xl border border-rose-100 shadow-sm space-y-3">
+                <h4 className="text-xs font-bold uppercase text-rose-600 flex items-center gap-2">
+                  <i className="bi bi-exclamation-triangle"></i> At-Risk Members
+                </h4>
+                <p className="text-[10px] text-slate-400">Absent from services 4+ weeks</p>
+                {insights.atRiskMembers.slice(0, 5).map(m => (
+                  <div key={m.id} className="flex justify-between items-center text-xs p-2 bg-rose-50 rounded-lg">
+                    <span className="font-medium text-slate-800">{m.name}</span>
+                    <a href={`tel:${m.phone}`} className="text-rose-600 hover:underline"><i className="bi bi-telephone"></i></a>
+                  </div>
+                ))}
+                <button type="button" onClick={() => onNavigate('Follow Up')} className="text-[10px] font-bold text-rose-600 uppercase tracking-wider hover:underline">
+                  Create follow-up tasks →
+                </button>
+              </div>
+            )}
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <h4 className="text-xs font-bold uppercase text-slate-600">Ministry Pulse</h4>
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="p-3 bg-teal-50 rounded-xl">
+                  <div className="text-lg font-bold text-teal-700">{insights.smallGroups.total_groups}</div>
+                  <div className="text-[10px] text-teal-600">Small Groups</div>
+                </div>
+                <div className="p-3 bg-purple-50 rounded-xl">
+                  <div className="text-lg font-bold text-purple-700">{insights.topEngaged.length}</div>
+                  <div className="text-[10px] text-purple-600">Top Engaged</div>
+                </div>
+              </div>
+              {insights.topEngaged.slice(0, 3).map(m => (
+                <div key={m.id} className="flex justify-between text-xs p-2 bg-slate-50 rounded-lg">
+                  <span className="font-medium">{m.name}</span>
+                  <span className="text-slate-400">{m.checkins} check-ins</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeRole === 'Church Administrator' && (
         <div className="bg-white p-6 rounded-none border border-[#E2E8F0] shadow-none space-y-4">

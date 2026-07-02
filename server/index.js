@@ -28,6 +28,8 @@ import communicationsRouter from './routes/communications.js';
 import formsRouter from './routes/forms.js';
 import financeRouter from './routes/finance.js';
 import checkinRouter from './routes/checkin.js';
+import insightsRouter from './routes/insights.js';
+import groupsRouter from './routes/groups.js';
 
 dotenv.config();
 
@@ -98,6 +100,8 @@ app.use('/api/communications', communicationsRouter);
 app.use('/api/forms', formsRouter);
 app.use('/api/finance', financeRouter);
 app.use('/api/checkin', checkinRouter);
+app.use('/api/insights', insightsRouter);
+app.use('/api/groups', groupsRouter);
 
 // Serve frontend build in production when enabled
 const distPath = path.join(__dirname, '..', 'dist');

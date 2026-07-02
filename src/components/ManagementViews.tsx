@@ -78,6 +78,7 @@ export default function ManagementViews({
   const [newDepartmentLeaderName, setNewDepartmentLeaderName] = useState('');
   const [newDepartmentMeetingSchedule, setNewDepartmentMeetingSchedule] = useState('Sunday 8:00 AM');
   const [visitorLink, setVisitorLink] = useState('');
+  const [visitorViewMode, setVisitorViewMode] = useState<'cards' | 'pipeline'>('pipeline');
 
   // Edit target states
   const [editMemberId, setEditMemberId] = useState<string | null>(null);
@@ -319,6 +320,21 @@ export default function ManagementViews({
       resetVisitorForm();
     } catch (error) {
       console.error('Failed to save visitor', error);
+    }
+  };
+
+  const PIPELINE_STAGES: VisitorStatus[] = ['New', 'Contacted', 'In Progress', 'Converted', 'Lost'];
+
+  const handleMoveVisitorStage = async (visitor: Visitor, newStatus: VisitorStatus) => {
+    if (visitor.status === newStatus) return;
+    try {
+      const dbId = parseInt(visitor.id.replace('V-', ''), 10);
+      const payload = frontendVisitorToDb({ ...visitor, status: newStatus });
+      const saved = await visitorsApi.update(dbId, payload);
+      const updated = { ...visitor, status: saved.status || newStatus };
+      onUpdateVisitors(visitors.map(v => v.id === visitor.id ? updated : v));
+    } catch (error) {
+      console.error('Failed to update visitor stage', error);
     }
   };
 
@@ -682,14 +698,19 @@ export default function ManagementViews({
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-lg font-bold text-slate-800">Visitors Management</h3>
-                <p className="text-sm text-slate-500">Track and follow up with first-time visitors.</p>
+                <p className="text-sm text-slate-500">Track visitors through the journey from first visit to membership.</p>
               </div>
-              <button
-                onClick={() => setShowVisitorForm(true)}
-                className="btn-primary"
-              >
-                Add Visitor
-              </button>
+              <div className="flex gap-2">
+                <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs">
+                  <button type="button" onClick={() => setVisitorViewMode('pipeline')} className={`px-3 py-2 font-semibold ${visitorViewMode === 'pipeline' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'}`}>
+                    <i className="bi bi-kanban mr-1"></i> Pipeline
+                  </button>
+                  <button type="button" onClick={() => setVisitorViewMode('cards')} className={`px-3 py-2 font-semibold ${visitorViewMode === 'cards' ? 'bg-amber-500 text-white' : 'bg-white text-slate-600'}`}>
+                    <i className="bi bi-grid mr-1"></i> Cards
+                  </button>
+                </div>
+                <button onClick={() => setShowVisitorForm(true)} className="btn-primary">Add Visitor</button>
+              </div>
             </div>
             <div className="rounded-xl border border-dashed border-amber-200 bg-gradient-to-r from-amber-50 to-amber-100/50 p-4">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -711,6 +732,52 @@ export default function ManagementViews({
             </div>
           </div>
 
+          {visitorViewMode === 'pipeline' ? (
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {PIPELINE_STAGES.map(stage => {
+                const stageVisitors = filteredVisitors.filter(v => v.status === stage);
+                const stageColors: Record<string, string> = {
+                  New: 'border-amber-300 bg-amber-50',
+                  Contacted: 'border-blue-300 bg-blue-50',
+                  'In Progress': 'border-purple-300 bg-purple-50',
+                  Converted: 'border-emerald-300 bg-emerald-50',
+                  Lost: 'border-slate-300 bg-slate-50',
+                };
+                return (
+                  <div key={stage} className={`min-w-[220px] flex-1 rounded-2xl border-2 ${stageColors[stage]} p-3 space-y-2`}>
+                    <div className="flex items-center justify-between px-1">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">{stage}</h4>
+                      <span className="text-xs font-bold bg-white px-2 py-0.5 rounded-full">{stageVisitors.length}</span>
+                    </div>
+                    {stageVisitors.map(visitor => (
+                      <div key={visitor.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                        <div className="font-semibold text-sm text-slate-800">{visitor.name}</div>
+                        <div className="text-[10px] text-slate-500">{visitor.visitDate} · {visitor.invitedBy || 'Walk-in'}</div>
+                        {visitor.prayerRequest && (
+                          <p className="text-[10px] text-slate-400 line-clamp-2 italic">"{visitor.prayerRequest}"</p>
+                        )}
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {PIPELINE_STAGES.filter(s => s !== stage).slice(0, 2).map(s => (
+                            <button
+                              key={s}
+                              type="button"
+                              onClick={() => handleMoveVisitorStage(visitor, s)}
+                              className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-amber-100 hover:text-amber-800 transition-colors"
+                            >
+                              → {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    {stageVisitors.length === 0 && (
+                      <p className="text-[10px] text-slate-400 text-center py-4">No visitors</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredVisitors.map(visitor => (
               <div key={visitor.id} className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-amber-300 hover:shadow-lg transition-all duration-300 card-hover">
@@ -732,6 +799,7 @@ export default function ManagementViews({
               </div>
             ))}
           </div>
+          )}
 
           {showVisitorForm && (
             <div className="modal-backdrop">

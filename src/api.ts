@@ -182,6 +182,8 @@ export const announcementsApi = {
 // Prayer requests API
 export const prayerApi = {
   getAll: () => apiCall('/prayer'),
+  getWall: () => apiCall('/prayer/wall'),
+  pray: (id: number) => apiCall(`/prayer/${id}/pray`, { method: 'POST' }),
   create: (data: any) => apiCall('/prayer', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: any) => apiCall(`/prayer/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: number) => apiCall(`/prayer/${id}`, { method: 'DELETE' }),
@@ -292,4 +294,25 @@ export const authApi = {
     method: 'POST',
     body: JSON.stringify(data),
   }),
+};
+
+// Insights API
+export const insightsApi = {
+  getDashboard: () => apiCall('/insights/dashboard'),
+};
+
+// Small groups API
+export const groupsApi = {
+  getAll: () => apiCall('/groups'),
+  create: (data: any) => apiCall('/groups', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/groups/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/groups/${id}`, { method: 'DELETE' }),
+  getMembers: (id: number) => apiCall(`/groups/${id}/members`),
+  addMember: (id: number, memberId: number, role?: string) => apiCall(`/groups/${id}/members`, {
+    method: 'POST',
+    body: JSON.stringify({ member_id: memberId, role }),
+  }),
+  removeMember: (groupId: number, memberId: number) => apiCall(`/groups/${groupId}/members/${memberId}`, { method: 'DELETE' }),
+  getMeetings: (id: number) => apiCall(`/groups/${id}/meetings`),
+  logMeeting: (id: number, data: any) => apiCall(`/groups/${id}/meetings`, { method: 'POST', body: JSON.stringify(data) }),
 };
