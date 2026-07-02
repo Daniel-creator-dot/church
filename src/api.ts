@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = 'https://churchapi-o3pk.onrender.com/api';
 
 // Generic API helper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
