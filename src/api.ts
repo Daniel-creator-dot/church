@@ -12,7 +12,12 @@ async function apiCall(endpoint: string, options: RequestInit = {}) {
   });
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status} ${response.statusText}`);
+    try {
+      const errorData = await response.json();
+      throw new Error(errorData.error || `API error: ${response.status} ${response.statusText}`);
+    } catch {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
   }
 
   return response.json();
@@ -162,5 +167,17 @@ export const authApi = {
   login: (email: string, password: string) => apiCall('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
+  }),
+  register: (data: any) => apiCall('/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  }),
+  forgotPassword: (email: string) => apiCall('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  }),
+  resetPassword: (data: any) => apiCall('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(data),
   }),
 };
