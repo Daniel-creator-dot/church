@@ -23,7 +23,7 @@ import {
   User
 } from './types';
 
-import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi } from './api';
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi } from './api';
 import { 
   dbMemberToFrontend, 
   frontendMemberToDb,
@@ -35,8 +35,16 @@ import {
   dbMemberToOption,
   dbLeaderToOption,
   dbVisitorToFrontend,
-  dbAttendanceToFrontend
+  dbAttendanceToFrontend,
+  dbMinistryToFrontend,
+  dbSermonToFrontend,
+  dbAnnouncementToFrontend,
+  dbPrayerToFrontend,
+  dbDevotionalToFrontend,
+  dbMediaToFrontend
 } from './dataMapper';
+import { getTodayString } from './utils/date';
+import { saveSession, loadSession, clearSession } from './utils/session';
 
 import DashboardView from './components/DashboardView';
 import ManagementViews from './components/ManagementViews';
@@ -52,8 +60,13 @@ import LoginView from './components/LoginView';
 // Map database roles to frontend roles
 const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
   const roleMapping: Record<string, Role> = {
-    'Admin': 'Admin',
+    'Admin': 'Church Administrator',
+    'Super Admin': 'Super Admin',
     'Pastor': 'Pastor',
+    'Church Administrator': 'Church Administrator',
+    'Finance Officer': 'Finance Officer',
+    'Department Leader': 'Department Leader',
+    'Media': 'Media',
     'Member': 'Member'
   };
   return roleMapping[dbRole] || 'Member';
@@ -158,72 +171,95 @@ export default function App() {
 
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [apiStatus, setApiStatus] = useState<'connected' | 'degraded' | 'offline'>('connected');
+
+  // Restore session on mount
+  useEffect(() => {
+    const session = loadSession();
+    if (session) {
+      setCurrentUserEmail(session.email);
+      setActiveRole(mapDatabaseRoleToFrontendRole(session.role));
+      setIsAuthenticated(true);
+    }
+  }, []);
 
   // Time state (real-time UTC/local clock)
   const [currentTime, setCurrentTime] = useState('');
 
-  // Fetch data from API on mount or after authentication
   useEffect(() => {
     const fetchData = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Check backend health
-        await healthCheck();
+      setIsLoading(true);
+      let failures = 0;
 
-        const settings = await settingsApi.get();
-        setCurrencyCode(settings.currencyCode || 'USD');
-        setCurrencySymbol(settings.currencySymbol || '$');
-        
-        // Fetch members
-        const membersData = await membersApi.getAll();
-        const membersFrontend = membersData.map(dbMemberToFrontend);
-        setMembers(membersFrontend);
-        
-        // Set current member ID based on email if authenticated
-        if (currentUserEmail) {
-          const currentUser = membersFrontend.find(m => m.email === currentUserEmail);
-          if (currentUser) {
-            setCurrentMemberId(currentUser.id);
-          }
+      const track = async <T,>(label: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+        try {
+          return await fn();
+        } catch (error) {
+          failures++;
+          console.error(`Failed to fetch ${label}:`, error);
+          return fallback;
         }
-        
-        // Fetch visitors
-        const visitorsData = await visitorsApi.getAll();
-        setVisitors(visitorsData.map(dbVisitorToFrontend));
+      };
 
-        // Fetch attendance
-        const attendanceData = await attendanceApi.getAll();
-        setAttendance(attendanceData.map(dbAttendanceToFrontend));
+      await track('health', () => healthCheck(), null);
+      setApiStatus(failures > 0 ? 'degraded' : 'connected');
 
-        // Fetch events
-        const eventsData = await eventsApi.getAll();
-        setEvents(eventsData.map(dbEventToFrontend));
-        
-        // Fetch donations
-        const donationsData = await donationsApi.getAll();
-        setGiving(donationsData.map(dbDonationToFrontend));
-        
-        // Fetch follow-ups
-        const followUpsData = await followupsApi.getAll();
-        setFollowUps(followUpsData.map(dbFollowUpToFrontend));
-        
-        // Fetch member options for dropdowns
-        const memberOptionsData = await followupsApi.getMembers();
-        setMemberOptions(memberOptionsData.map(dbMemberToOption));
-        
-        // Fetch leader options for dropdowns
-        const leaderOptionsData = await followupsApi.getLeaders();
-        setLeaderOptions(leaderOptionsData.map(dbLeaderToOption));
-        
-      } catch (error) {
-        console.error('Error fetching data from API:', error);
-      } finally {
-        setIsLoading(false);
+      const settings = await track('settings', () => settingsApi.get(), { currencyCode: 'USD', currencySymbol: '$' });
+      setCurrencyCode(settings.currencyCode || 'USD');
+      setCurrencySymbol(settings.currencySymbol || '$');
+
+      const membersData = await track('members', () => membersApi.getAll(), []);
+      const membersFrontend = membersData.map(dbMemberToFrontend);
+      setMembers(membersFrontend);
+
+      if (currentUserEmail) {
+        const currentUser = membersFrontend.find(m => m.email === currentUserEmail);
+        if (currentUser) setCurrentMemberId(currentUser.id);
       }
+
+      const visitorsData = await track('visitors', () => visitorsApi.getAll(), []);
+      setVisitors(visitorsData.map(dbVisitorToFrontend));
+
+      const attendanceData = await track('attendance', () => attendanceApi.getAll(), []);
+      setAttendance(attendanceData.map(dbAttendanceToFrontend));
+
+      const eventsData = await track('events', () => eventsApi.getAll(), []);
+      setEvents(eventsData.map(dbEventToFrontend));
+
+      const donationsData = await track('donations', () => donationsApi.getAll(), []);
+      setGiving(donationsData.map(dbDonationToFrontend));
+
+      const followUpsData = await track('followups', () => followupsApi.getAll(), []);
+      setFollowUps(followUpsData.map(dbFollowUpToFrontend));
+
+      const ministriesData = await track('ministries', () => ministriesApi.getAll(), []);
+      setDepartments(ministriesData.map(dbMinistryToFrontend));
+
+      const sermonsData = await track('sermons', () => sermonsApi.getAll(), []);
+      setSermons(sermonsData.map(dbSermonToFrontend));
+
+      const announcementsData = await track('announcements', () => announcementsApi.getAll(), []);
+      setAnnouncements(announcementsData.map(dbAnnouncementToFrontend));
+
+      const prayerData = await track('prayer', () => prayerApi.getAll(), []);
+      setPrayerRequests(prayerData.map(dbPrayerToFrontend));
+
+      const devotionalsData = await track('devotionals', () => devotionalsApi.getAll(), []);
+      setDevotionals(devotionalsData.map(dbDevotionalToFrontend));
+
+      const mediaData = await track('media', () => mediaApi.getAll(), []);
+      setMediaAssets(mediaData.map(dbMediaToFrontend));
+
+      const memberOptionsData = await track('member options', () => followupsApi.getMembers(), []);
+      setMemberOptions(memberOptionsData.map(dbMemberToOption));
+
+      const leaderOptionsData = await track('leader options', () => followupsApi.getLeaders(), []);
+      setLeaderOptions(leaderOptionsData.map(dbLeaderToOption));
+
+      if (failures > 3) setApiStatus('offline');
+      setIsLoading(false);
     };
 
-    // Only fetch data if authenticated
     if (isAuthenticated) {
       fetchData();
     }
@@ -277,14 +313,15 @@ export default function App() {
     const mappedRole = mapDatabaseRoleToFrontendRole(user.role);
     setActiveRole(mappedRole);
     setIsAuthenticated(true);
+    saveSession(user);
   };
 
-  // Logout handler
   const handleLogout = () => {
+    clearSession();
     setIsAuthenticated(false);
     setCurrentUserEmail('');
     setCurrentMemberId('');
-    setActiveRole('Super Admin');
+    setActiveRole('Member');
     setActiveTab('Dashboard');
   };
 
@@ -382,7 +419,7 @@ export default function App() {
   };
 
   // Daily word references for dashboard preview
-  const todayStr = '2026-06-30';
+  const todayStr = getTodayString();
   const currentDevotional = devotionals.find(d => d.date === todayStr) || devotionals[0];
   const devotionalTitle = currentDevotional ? currentDevotional.title : 'Seeking God Early';
 
@@ -496,8 +533,8 @@ export default function App() {
         <div className="p-4 border-t border-slate-200/60 bg-gradient-to-r from-slate-50 to-white space-y-3">
           <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
             <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              Live Synced
+              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${apiStatus === 'connected' ? 'bg-emerald-500' : apiStatus === 'degraded' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+              {apiStatus === 'connected' ? 'Live Synced' : apiStatus === 'degraded' ? 'Partial Sync' : 'Offline'}
             </span>
             <span className="font-bold flex items-center gap-1 text-slate-700">
               <i className="bi bi-clock text-[#F59E0B]"></i> {currentTime}

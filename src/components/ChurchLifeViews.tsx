@@ -1,4 +1,12 @@
 import React, { useState } from 'react';
+import { donationsApi, eventsApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi } from '../api';
+import {
+  frontendGivingToDb, dbDonationToFrontend, frontendEventToDb, dbEventToFrontend,
+  frontendSermonToDb, dbSermonToFrontend, frontendAnnouncementToDb, dbAnnouncementToFrontend,
+  frontendPrayerToDb, dbPrayerToFrontend, frontendDevotionalToDb, dbDevotionalToFrontend,
+  frontendMediaToDb, dbMediaToFrontend
+} from '../dataMapper';
+import { getTodayString } from '../utils/date';
 import { 
   Sermon, 
   GivingRecord, 
@@ -244,223 +252,241 @@ export default function ChurchLifeViews({
 
   // HANDLERS
 
-  // Save Sermon
-  const handleSaveSermon = (e: React.FormEvent) => {
+  const handleSaveSermon = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!sermonTitle) return;
 
-    const newId = `S-${Math.floor(500 + Math.random() * 500)}`;
-    const newSermon: Sermon = {
-      id: newId,
-      title: sermonTitle,
-      speaker: sermonSpeaker,
-      date: new Date().toISOString().split('T')[0],
-      theme: sermonTheme,
-      bibleVerse: sermonVerse,
-      notes: sermonNotes,
-      audioUrl: sermonAudio || undefined
-    };
-
-    onUpdateSermons([newSermon, ...sermons]);
-    setSelectedSermon(newSermon);
-    setSermonTitle('');
-    setSermonSpeaker('');
-    setSermonTheme('');
-    setSermonVerse('');
-    setSermonNotes('');
-    setSermonAudio('');
-    setShowSermonForm(false);
+    try {
+      const saved = await sermonsApi.create(frontendSermonToDb({
+        id: '',
+        title: sermonTitle,
+        speaker: sermonSpeaker,
+        date: getTodayString(),
+        theme: sermonTheme,
+        bibleVerse: sermonVerse,
+        notes: sermonNotes,
+        audioUrl: sermonAudio || undefined
+      }));
+      const newSermon = dbSermonToFrontend(saved);
+      onUpdateSermons([newSermon, ...sermons]);
+      setSelectedSermon(newSermon);
+      setSermonTitle('');
+      setSermonSpeaker('');
+      setSermonTheme('');
+      setSermonVerse('');
+      setSermonNotes('');
+      setSermonAudio('');
+      setShowSermonForm(false);
+    } catch (error) {
+      console.error('Failed to save sermon', error);
+    }
   };
 
-  // Record Giving
-  const handleSaveGiving = (e: React.FormEvent) => {
+  const handleSaveGiving = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!donorName || givingAmount <= 0) return;
 
-    const newId = `G-${Math.floor(400 + Math.random() * 600)}`;
-    const receiptNum = `REC-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    try {
+      const saved = await donationsApi.create(frontendGivingToDb({
+        id: '',
+        memberId: currentMemberId,
+        donorName,
+        date: getTodayString(),
+        type: givingType,
+        amount: givingAmount,
+        paymentMethod: givingMethod,
+        receiptNumber: ''
+      }));
+      const newGivingRecord = dbDonationToFrontend(saved);
+      onUpdateGiving([newGivingRecord, ...giving]);
 
-    const newGivingRecord: GivingRecord = {
-      id: newId,
-      memberId: currentMemberId, // Associate with current member if logged in
-      donorName,
-      date: new Date().toISOString().split('T')[0],
-      type: givingType,
-      amount: givingAmount,
-      paymentMethod: givingMethod,
-      receiptNumber: receiptNum
-    };
+      onRecordTransaction({
+        type: 'Income',
+        category: givingType,
+        amount: givingAmount,
+        description: `${givingType} contribution by ${donorName}`
+      });
 
-    onUpdateGiving([newGivingRecord, ...giving]);
-    
-    // Automatically record in the finance transaction log ledger
-    onRecordTransaction({
-      type: 'Income',
-      category: givingType,
-      amount: givingAmount,
-      description: `${givingType} contribution by ${donorName}`
-    });
-
-    // Automatically trigger visual receipt preview!
-    setSelectedReceipt(newGivingRecord);
-
-    setDonorName('');
-    setGivingAmount(100);
-    setShowGivingForm(false);
+      setSelectedReceipt(newGivingRecord);
+      setDonorName('');
+      setGivingAmount(100);
+      setShowGivingForm(false);
+    } catch (error) {
+      console.error('Failed to save giving', error);
+    }
   };
 
-  // Register / RSVP for Event
-  const handleEventRsvp = (eventId: string) => {
-    const updated = events.map(e => {
-      if (e.id === eventId) {
-        const email = userEmail || 'member@morningchurch.org';
-        if (e.rsvps.includes(email)) {
-          alert('You have already RSVP’d for this church program.');
-          return e;
-        }
-        alert(`Thank you! Your RSVP is confirmed for "${e.title}".`);
-        return { ...e, rsvps: [...e.rsvps, email] };
-      }
-      return e;
-    });
-    onUpdateEvents(updated);
+  const handleEventRsvp = async (eventId: string) => {
+    if (!currentMemberId) {
+      alert('Please log in with a member account to RSVP.');
+      return;
+    }
+    const memberDbId = parseInt(currentMemberId.replace('M-', ''));
+    const eventDbId = parseInt(eventId.replace('E-', ''));
+
+    try {
+      await eventsApi.register(eventDbId, memberDbId);
+      const registrations = await eventsApi.getRegistrations(eventDbId);
+      const rsvpEmails = registrations.map((r: any) => r.email).filter(Boolean);
+      const updated = events.map(ev => ev.id === eventId ? { ...ev, rsvps: rsvpEmails } : ev);
+      onUpdateEvents(updated);
+      alert('Thank you! Your RSVP is confirmed.');
+    } catch (error) {
+      console.error('Failed to RSVP', error);
+      alert('RSVP failed. You may already be registered.');
+    }
   };
 
-  // Create Event
-  const handleSaveEvent = (e: React.FormEvent) => {
+  const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!eventTitle) return;
 
-    const newId = `E-${Math.floor(600 + Math.random() * 400)}`;
-    const newEvent: ChurchEvent = {
-      id: newId,
-      title: eventTitle,
-      date: eventDate,
-      time: eventTime,
-      location: eventLocation,
-      category: eventCategory,
-      description: eventDescription,
-      rsvps: []
-    };
-
-    onUpdateEvents([newEvent, ...events]);
-    setEventTitle('');
-    setEventDescription('');
-    setShowEventForm(false);
+    try {
+      const saved = await eventsApi.create(frontendEventToDb({
+        id: '',
+        title: eventTitle,
+        date: eventDate,
+        time: eventTime,
+        location: eventLocation,
+        category: eventCategory,
+        description: eventDescription,
+        rsvps: []
+      }));
+      const newEvent = dbEventToFrontend(saved);
+      onUpdateEvents([newEvent, ...events]);
+      setEventTitle('');
+      setEventDescription('');
+      setShowEventForm(false);
+    } catch (error) {
+      console.error('Failed to save event', error);
+    }
   };
 
-  // Create Announcement
-  const handleSaveAnnouncement = (e: React.FormEvent) => {
+  const handleSaveAnnouncement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!annTitle) return;
 
-    const newId = `ANN-${Math.floor(700 + Math.random() * 300)}`;
-    const newAnn: Announcement = {
-      id: newId,
-      title: annTitle,
-      content: annContent,
-      date: new Date().toISOString().split('T')[0],
-      category: annCategory,
-      status: annStatus
-    };
-
-    onUpdateAnnouncements([newAnn, ...announcements]);
-    setAnnTitle('');
-    setAnnContent('');
-    setShowAnnouncementForm(false);
+    try {
+      const saved = await announcementsApi.create(frontendAnnouncementToDb({
+        id: '',
+        title: annTitle,
+        content: annContent,
+        date: getTodayString(),
+        category: annCategory,
+        status: annStatus
+      }));
+      const newAnn = dbAnnouncementToFrontend(saved);
+      onUpdateAnnouncements([newAnn, ...announcements]);
+      setAnnTitle('');
+      setAnnContent('');
+      setShowAnnouncementForm(false);
+    } catch (error) {
+      console.error('Failed to save announcement', error);
+    }
   };
 
-  // Submit Prayer Request
-  const handleSavePrayer = (e: React.FormEvent) => {
+  const handleSavePrayer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!prayerRequestText) return;
 
-    const newId = `P-${Math.floor(800 + Math.random() * 200)}`;
-    const newPrayer: PrayerRequest = {
-      id: newId,
-      submittedBy: prayerSubmitter || 'Anonymous Member',
-      email: prayerEmail || 'anonymous@morningchurch.org',
-      request: prayerRequestText,
-      isPrivate: prayerPrivate,
-      status: 'Pending',
-      date: new Date().toISOString().split('T')[0]
-    };
-
-    onUpdatePrayerRequests([newPrayer, ...prayerRequests]);
-    setPrayerSubmitter('');
-    setPrayerEmail('');
-    setPrayerRequestText('');
-    setPrayerPrivate(false);
-    setShowPrayerForm(false);
-    alert('Your prayer request has been submitted to the pastoral desk. We stand in faith with you.');
+    try {
+      const saved = await prayerApi.create(frontendPrayerToDb({
+        id: '',
+        submittedBy: prayerSubmitter || 'Anonymous Member',
+        email: prayerEmail || userEmail,
+        request: prayerRequestText,
+        isPrivate: prayerPrivate,
+        status: 'Pending',
+        date: getTodayString()
+      }));
+      const newPrayer = dbPrayerToFrontend(saved);
+      onUpdatePrayerRequests([newPrayer, ...prayerRequests]);
+      setPrayerSubmitter('');
+      setPrayerEmail('');
+      setPrayerRequestText('');
+      setPrayerPrivate(false);
+      setShowPrayerForm(false);
+      alert('Your prayer request has been submitted to the pastoral desk.');
+    } catch (error) {
+      console.error('Failed to save prayer request', error);
+    }
   };
 
-  // Update Prayer Status
-  const handleUpdatePrayerStatus = (prayerId: string, action: 'Prayed For' | 'Followed Up') => {
-    const updated = prayerRequests.map(p => {
-      if (p.id === prayerId) {
-        return { 
-          ...p, 
-          status: action,
-          notes: `Marked as ${action.toLowerCase()} by ${activeRole} on ${new Date().toISOString().split('T')[0]}`
-        };
-      }
-      return p;
-    });
-    onUpdatePrayerRequests(updated);
+  const handleUpdatePrayerStatus = async (prayerId: string, action: 'Prayed For' | 'Followed Up') => {
+    const prayer = prayerRequests.find(p => p.id === prayerId);
+    if (!prayer) return;
+
+    try {
+      const dbId = parseInt(prayerId.replace('PR-', ''));
+      const saved = await prayerApi.update(dbId, frontendPrayerToDb({
+        ...prayer,
+        status: action,
+        notes: `Marked as ${action.toLowerCase()} by ${activeRole} on ${getTodayString()}`
+      }));
+      const updated = prayerRequests.map(p => p.id === prayerId ? dbPrayerToFrontend(saved) : p);
+      onUpdatePrayerRequests(updated);
+    } catch (error) {
+      console.error('Failed to update prayer status', error);
+    }
   };
 
-  // Create Devotional
-  const handleSaveDevotional = (e: React.FormEvent) => {
+  const handleSaveDevotional = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!devTitle) return;
 
-    const newDev: Devotional = {
-      date: devDate,
-      title: devTitle,
-      verse: devVerse,
-      reference: devReference,
-      devotionText: devText,
-      prayerPoints: devPoints.split('\n').filter(p => p.trim()),
-      declaration: devDeclaration
-    };
-
-    onUpdateDevotionals([newDev, ...devotionals]);
-    setDevTitle('');
-    setDevVerse('');
-    setDevReference('');
-    setDevText('');
-    setDevPoints('');
-    setDevDeclaration('');
-    setShowDevotionalForm(false);
-    alert(`Devotional for ${devDate} published!`);
+    try {
+      const saved = await devotionalsApi.create(frontendDevotionalToDb({
+        date: devDate,
+        title: devTitle,
+        verse: devVerse,
+        reference: devReference,
+        devotionText: devText,
+        prayerPoints: devPoints.split('\n').filter(p => p.trim()),
+        declaration: devDeclaration
+      }));
+      const newDev = dbDevotionalToFrontend(saved);
+      onUpdateDevotionals([newDev, ...devotionals]);
+      setDevTitle('');
+      setDevVerse('');
+      setDevReference('');
+      setDevText('');
+      setDevPoints('');
+      setDevDeclaration('');
+      setShowDevotionalForm(false);
+      alert(`Devotional for ${devDate} published!`);
+    } catch (error) {
+      console.error('Failed to save devotional', error);
+    }
   };
 
-  // Submit Media / Testimony
-  const handleSaveMedia = (e: React.FormEvent) => {
+  const handleSaveMedia = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mediaTitle) return;
 
-    const newId = `MED-${Math.floor(300 + Math.random() * 700)}`;
     const defaultUrl = mediaType === 'Photo' ? 'https://images.unsplash.com/photo-1478147427282-58a87a120781?w=800&auto=format&fit=crop&q=60' :
                        mediaType === 'Flyer' ? 'https://images.unsplash.com/photo-1544427920-c49ccfb85579?w=800&auto=format&fit=crop&q=60' :
                        'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800&auto=format&fit=crop&q=60';
+    const isApproved = ['Super Admin', 'Pastor', 'Church Administrator'].includes(activeRole);
 
-    const newMedia: MediaAsset = {
-      id: newId,
-      title: mediaTitle,
-      type: mediaType,
-      url: mediaUrl || defaultUrl,
-      approved: ['Super Admin', 'Pastor', 'Church Administrator'].includes(activeRole), // Auto approve for admin
-      date: new Date().toISOString().split('T')[0],
-      submittedBy: activeRole === 'Member' ? userEmail : activeRole
-    };
-
-    onUpdateMediaAssets([newMedia, ...mediaAssets]);
-    setMediaTitle('');
-    setMediaUrl('');
-    setShowMediaForm(false);
-    alert(newMedia.approved ? 'Media added successfully!' : 'Testimony submitted for pastoral/admin approval.');
+    try {
+      const saved = await mediaApi.create(frontendMediaToDb({
+        id: '',
+        title: mediaTitle,
+        type: mediaType,
+        url: mediaUrl || defaultUrl,
+        approved: isApproved,
+        date: getTodayString(),
+        submittedBy: activeRole === 'Member' ? userEmail : activeRole
+      }));
+      const newMedia = dbMediaToFrontend(saved);
+      onUpdateMediaAssets([newMedia, ...mediaAssets]);
+      setMediaTitle('');
+      setMediaUrl('');
+      setShowMediaForm(false);
+      alert(newMedia.approved ? 'Media added successfully!' : 'Testimony submitted for pastoral approval.');
+    } catch (error) {
+      console.error('Failed to save media', error);
+    }
   };
 
   // Approve Testimony
@@ -472,7 +498,7 @@ export default function ChurchLifeViews({
   const isAdmin = ['Super Admin', 'Pastor', 'Church Administrator', 'Finance Officer'].includes(activeRole);
 
   // Active Today's Devotional Lookup
-  const todayStr = '2026-06-30';
+  const todayStr = getTodayString();
   const activeDevotional = devotionals.find(d => d.date === todayStr) || devotionals[0];
 
   return (

@@ -112,6 +112,78 @@ CREATE TABLE IF NOT EXISTS follow_ups (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Attendance records
+CREATE TABLE IF NOT EXISTS attendance_records (
+  id SERIAL PRIMARY KEY,
+  service_date DATE NOT NULL,
+  service_type VARCHAR(50) NOT NULL,
+  headcount INTEGER DEFAULT 0,
+  attended_member_ids TEXT[] DEFAULT '{}',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Sermons
+CREATE TABLE IF NOT EXISTS sermons (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  speaker VARCHAR(255),
+  sermon_date DATE DEFAULT CURRENT_DATE,
+  theme VARCHAR(255),
+  bible_verse TEXT,
+  notes TEXT,
+  video_url TEXT,
+  audio_url TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Announcements
+CREATE TABLE IF NOT EXISTS announcements (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT,
+  announcement_date DATE DEFAULT CURRENT_DATE,
+  category VARCHAR(50) DEFAULT 'General',
+  status VARCHAR(50) DEFAULT 'Published',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Prayer requests
+CREATE TABLE IF NOT EXISTS prayer_requests (
+  id SERIAL PRIMARY KEY,
+  submitted_by VARCHAR(255),
+  email VARCHAR(255),
+  request TEXT NOT NULL,
+  is_private BOOLEAN DEFAULT false,
+  status VARCHAR(50) DEFAULT 'Pending',
+  request_date DATE DEFAULT CURRENT_DATE,
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Devotionals
+CREATE TABLE IF NOT EXISTS devotionals (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  content TEXT,
+  devotional_date DATE DEFAULT CURRENT_DATE,
+  scripture TEXT,
+  author VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Media assets
+CREATE TABLE IF NOT EXISTS media_assets (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  media_type VARCHAR(50),
+  url TEXT,
+  description TEXT,
+  upload_date DATE DEFAULT CURRENT_DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_members_email ON members(email);
 CREATE INDEX IF NOT EXISTS idx_members_status ON members(status);
@@ -121,3 +193,8 @@ CREATE INDEX IF NOT EXISTS idx_donations_member ON donations(member_id);
 CREATE INDEX IF NOT EXISTS idx_followups_target ON follow_ups(target_person_id);
 CREATE INDEX IF NOT EXISTS idx_followups_assigned ON follow_ups(assigned_to_id);
 CREATE INDEX IF NOT EXISTS idx_followups_status ON follow_ups(status);
+CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_records(service_date);
+CREATE INDEX IF NOT EXISTS idx_sermons_date ON sermons(sermon_date);
+CREATE INDEX IF NOT EXISTS idx_announcements_date ON announcements(announcement_date);
+CREATE INDEX IF NOT EXISTS idx_prayer_date ON prayer_requests(request_date);
+CREATE INDEX IF NOT EXISTS idx_devotionals_date ON devotionals(devotional_date);

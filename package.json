@@ -11,7 +11,9 @@
     "lint": "tsc --noEmit",
     "server": "node server/index.js",
     "init-db": "node server/init-db.js",
-    "seed-db": "node server/seed-db.js"
+    "seed-db": "node server/seed-db.js",
+    "start": "node server/index.js",
+    "build:prod": "npm run build && SERVE_STATIC=true npm start"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

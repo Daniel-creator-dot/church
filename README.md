@@ -1,68 +1,82 @@
 # Bethel Baptist Church Management System
 
-A comprehensive church management system with member management, donations, events, ministries, and reports.
+A comprehensive church management platform for member administration, giving, events, ministries, attendance, and church life content.
 
 ## Features
 
-- Member management and tracking
-- Visitor registration and follow-up
-- Attendance tracking
-- Donation and giving management
-- Event management
-- Ministry/Department organization
-- Live stream integration
-- Bookstore management
-- Prayer requests
-- Announcements
-- Devotional content
-- Financial reports
-- Multi-church support
-- Role-based access control (Super Admin, Pastor, Church Administrator, Finance Officer, Department Leader, Media, Member)
+- **Member & visitor management** — CRUD, public visitor signup, follow-up tracking
+- **Attendance** — Service records with headcount and member tracking
+- **Departments (ministries)** — Ministry organization with leaders and members
+- **Giving & donations** — Tithes, offerings, receipts, finance reporting
+- **Events** — Create events and member RSVP registration
+- **Church life** — Sermons, announcements, prayer requests, devotionals, media
+- **Role-based access** — Super Admin, Pastor, Church Administrator, Finance Officer, Department Leader, Media, Member
+- **Multi-currency** — USD, GHS, EUR, NGN
+- **Session persistence** — Stay logged in across page refreshes
 
 ## Tech Stack
 
-- **Frontend:** React with TypeScript, Vite
+- **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS
 - **Backend:** Express.js
-- **Database:** SQLite
-- **Styling:** CSS
+- **Database:** PostgreSQL
 
 ## Run Locally
 
-**Prerequisites:** Node.js
+**Prerequisites:** Node.js 18+, PostgreSQL
 
 1. Install dependencies:
    ```bash
    npm install
    ```
 
-2. Set up environment variables:
-   Create a `.env` file based on `.env.example` and configure your settings
+2. Copy environment file and configure:
+   ```bash
+   cp .env.example .env
+   ```
+   Set `DATABASE_URL` or individual `DB_*` variables for PostgreSQL.
 
 3. Initialize the database:
    ```bash
-   node server/init-db.js
+   npm run init-db
    ```
 
-4. Start the backend server:
+4. Create an admin user:
    ```bash
-   node server/index.js
+   node server/add-admin.js
    ```
 
-5. In a new terminal, start the frontend:
+5. Start the API server (terminal 1):
+   ```bash
+   npm run server
+   ```
+
+6. Start the frontend dev server (terminal 2):
    ```bash
    npm run dev
    ```
 
-## Default Admin
+The Vite dev server proxies `/api` to `http://localhost:3001`.
 
-After initializing the database, you can create an admin user:
-```bash
-node server/add-admin.js
-```
+## Production (Render)
+
+| Service | URL |
+|---------|-----|
+| Frontend | https://church-ae7v.onrender.com |
+| API | https://churchapi-o3pk.onrender.com |
+
+Set `VITE_API_URL=https://churchapi-o3pk.onrender.com/api` when building the frontend.
+
+For a single-service deploy, set `SERVE_STATIC=true` and run `npm run build` before `npm start`.
 
 ## Project Structure
 
-- `src/` - React frontend components and logic
-- `server/` - Express.js backend API and database
-- `server/routes/` - API route handlers
-- `server/schema.sql` - Database schema
+```
+src/           React frontend (components, API client, types)
+server/        Express API, routes, PostgreSQL schema
+server/routes/ API route handlers
+server/schema.sql  Database schema (auto-applied on startup)
+```
+
+## Default Credentials
+
+After running `add-admin.js`, use the email and password you configured. New registrations receive a default password shown once at signup.

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LiveStream, Role } from '../types';
+import { getTodayString } from '../utils/date';
 
 interface LiveStreamViewProps {
   activeRole: Role;
@@ -47,7 +48,7 @@ export default function LiveStreamView({
   // Form Fields
   const [title, setTitle] = useState('');
   const [speaker, setSpeaker] = useState('');
-  const [date, setDate] = useState('2026-06-30');
+  const [date, setDate] = useState(getTodayString());
   const [time, setTime] = useState('20:00');
   const [embedUrl, setEmbedUrl] = useState('');
   const [description, setDescription] = useState('');
@@ -144,7 +145,7 @@ export default function LiveStreamView({
   const resetForm = () => {
     setTitle('');
     setSpeaker('');
-    setDate('2026-06-30');
+    setDate(getTodayString());
     setTime('20:00');
     setEmbedUrl('');
     setDescription('');

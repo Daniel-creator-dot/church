@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { membersApi, visitorsApi } from '../api';
-import { frontendMemberToDb, frontendVisitorToDb } from '../dataMapper';
+import { membersApi, visitorsApi, attendanceApi, followupsApi, ministriesApi } from '../api';
+import { frontendMemberToDb, frontendVisitorToDb, frontendAttendanceToDb, dbAttendanceToFrontend, frontendFollowUpToDb, dbFollowUpToFrontend, frontendDepartmentToDb, dbMinistryToFrontend } from '../dataMapper';
+import { getTodayString } from '../utils/date';
 import { 
   Member, 
   Visitor, 
@@ -12,7 +13,7 @@ import {
   BaptismStatus,
   VisitorStatus,
   ServiceType,
-  FollowUpType,
+  FollowUpCategory,
   FollowUpStatus,
   DepartmentName,
   MemberOption,
@@ -108,7 +109,7 @@ export default function ManagementViews({
   const [visitorNotes, setVisitorNotes] = useState('');
 
   // Attendance Form Fields
-  const [attendanceDate, setAttendanceDate] = useState('2026-06-30');
+  const [attendanceDate, setAttendanceDate] = useState(getTodayString());
   const [attendanceService, setAttendanceService] = useState<ServiceType>('Sunday Service');
   const [attendanceHeadcount, setAttendanceHeadcount] = useState(100);
   const [attendanceNotes, setAttendanceNotes] = useState('');
@@ -117,7 +118,7 @@ export default function ManagementViews({
   // Follow-up Form Fields
   const [followTargetId, setFollowTargetId] = useState<number | null>(null);
   const [followTargetName, setFollowTargetName] = useState('');
-  const [followType, setFollowType] = useState<FollowUpType>('Visitor');
+  const [followType, setFollowType] = useState<FollowUpCategory>('Visitor');
   const [followAssignedId, setFollowAssignedId] = useState<number | null>(null);
   const [followAssignedName, setFollowAssignedName] = useState('');
   const [followNotes, setFollowNotes] = useState('');
@@ -165,7 +166,7 @@ export default function ManagementViews({
   };
 
   const resetAttendanceForm = () => {
-    setAttendanceDate('2026-06-30');
+    setAttendanceDate(getTodayString());
     setAttendanceService('Sunday Service');
     setAttendanceHeadcount(100);
     setAttendanceNotes('');
@@ -322,69 +323,87 @@ export default function ManagementViews({
   };
 
   // Create Attendance Record
-  const handleSaveAttendance = (e: React.FormEvent) => {
+  const handleSaveAttendance = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const newRecord: AttendanceRecord = {
-      id: `A-${Math.floor(300 + Math.random() * 900)}`,
-      date: attendanceDate,
-      serviceType: attendanceService,
-      headcount: attendanceHeadcount,
-      attendedMemberIds: selectedAttendants,
-      notes: attendanceNotes
-    };
-    onUpdateAttendance([newRecord, ...attendance]);
-    resetAttendanceForm();
+    try {
+      const saved = await attendanceApi.create(frontendAttendanceToDb({
+        id: '',
+        date: attendanceDate,
+        serviceType: attendanceService,
+        headcount: attendanceHeadcount,
+        attendedMemberIds: selectedAttendants,
+        notes: attendanceNotes
+      }));
+      const newRecord = dbAttendanceToFrontend(saved);
+      onUpdateAttendance([newRecord, ...attendance]);
+      resetAttendanceForm();
+    } catch (error) {
+      console.error('Failed to save attendance', error);
+    }
   };
 
-  // Create Follow Up
-  const handleSaveFollowUp = (e: React.FormEvent) => {
+  const handleSaveFollowUp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!followTargetName) return;
 
-    const newId = `F-${Math.floor(900 + Math.random() * 100)}`;
-    const newRecord: FollowUpRecord = {
-      id: newId,
-      targetPersonId: followTargetId,
-      targetPersonName: followTargetName,
-      category: followType as any, // Type conversion for compatibility
-      assignedToId: followAssignedId,
-      assignedToName: followAssignedName || 'Unassigned',
-      status: 'Pending',
-      notes: followNotes,
-      dateCreated: new Date().toISOString().split('T')[0]
-    };
-    onUpdateFollowUps([newRecord, ...followUps]);
-    resetFollowUpForm();
+    try {
+      const saved = await followupsApi.create(frontendFollowUpToDb({
+        id: '',
+        targetPersonId: followTargetId,
+        targetPersonName: followTargetName,
+        category: followType,
+        assignedToId: followAssignedId,
+        assignedToName: followAssignedName || 'Unassigned',
+        status: 'Pending',
+        notes: followNotes,
+        dateCreated: getTodayString()
+      }));
+      const newRecord = dbFollowUpToFrontend(saved);
+      onUpdateFollowUps([newRecord, ...followUps]);
+      resetFollowUpForm();
+    } catch (error) {
+      console.error('Failed to save follow-up', error);
+    }
   };
 
-  const handleToggleFollowUpStatus = (f: FollowUpRecord) => {
+  const handleToggleFollowUpStatus = async (f: FollowUpRecord) => {
     const nextStatus: FollowUpStatus = 
       f.status === 'Pending' ? 'In Progress' : 
       f.status === 'In Progress' ? 'Completed' : 'Pending';
 
-    const updated = followUps.map(record => record.id === f.id ? { ...record, status: nextStatus } : record);
-    onUpdateFollowUps(updated);
+    try {
+      const dbId = parseInt(f.id.replace('F-', ''));
+      const saved = await followupsApi.update(dbId, frontendFollowUpToDb({ ...f, status: nextStatus }));
+      const updated = followUps.map(record => record.id === f.id ? dbFollowUpToFrontend(saved) : record);
+      onUpdateFollowUps(updated);
+    } catch (error) {
+      console.error('Failed to update follow-up', error);
+    }
   };
 
-  const handleSaveDepartment = (e: React.FormEvent) => {
+  const handleSaveDepartment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDepartmentName) return;
 
-    const newDepartment: Department = {
-      id: `D-${Math.floor(100 + Math.random() * 900)}`,
-      name: newDepartmentName,
-      leaderName: newDepartmentLeaderName || 'Vacant',
-      leaderId: newDepartmentLeaderId || '',
-      membersCount: 0,
-      meetingSchedule: newDepartmentMeetingSchedule,
-      budget: 0,
-      spent: 0,
-      reports: []
-    };
-
-    onUpdateDepartments([newDepartment, ...departments]);
-    resetDepartmentForm();
+    try {
+      const saved = await ministriesApi.create(frontendDepartmentToDb({
+        id: '',
+        name: newDepartmentName,
+        leaderName: newDepartmentLeaderName || 'Vacant',
+        leaderId: newDepartmentLeaderId || '',
+        membersCount: 0,
+        meetingSchedule: newDepartmentMeetingSchedule,
+        budget: 0,
+        spent: 0,
+        reports: []
+      }));
+      const newDepartment = dbMinistryToFrontend(saved);
+      onUpdateDepartments([newDepartment, ...departments]);
+      resetDepartmentForm();
+    } catch (error) {
+      console.error('Failed to save department', error);
+    }
   };
 
   // Add Department Report
@@ -920,7 +939,7 @@ export default function ManagementViews({
                     id="form-follow-type"
                     className="input-elegant cursor-pointer"
                     value={followType}
-                    onChange={(e) => setFollowType(e.target.value as FollowUpType)}
+                    onChange={(e) => setFollowType(e.target.value as FollowUpCategory)}
                   >
                     <option value="New Convert">New Convert</option>
                     <option value="Visitor">Visitor</option>

@@ -13,6 +13,12 @@ import followupsRouter from './routes/followups.js';
 import settingsRouter from './routes/settings.js';
 import visitorsRouter from './routes/visitors.js';
 import authRouter from './routes/auth.js';
+import attendanceRouter from './routes/attendance.js';
+import sermonsRouter from './routes/sermons.js';
+import announcementsRouter from './routes/announcements.js';
+import prayerRouter from './routes/prayer.js';
+import devotionalsRouter from './routes/devotionals.js';
+import mediaRouter from './routes/media.js';
 
 dotenv.config();
 
@@ -68,6 +74,23 @@ app.use('/api/followups', followupsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/visitors', visitorsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/attendance', attendanceRouter);
+app.use('/api/sermons', sermonsRouter);
+app.use('/api/announcements', announcementsRouter);
+app.use('/api/prayer', prayerRouter);
+app.use('/api/devotionals', devotionalsRouter);
+app.use('/api/media', mediaRouter);
+
+// Serve frontend build in production when enabled
+const distPath = path.join(__dirname, '..', 'dist');
+if (process.env.SERVE_STATIC === 'true' && fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    }
+  });
+}
 
 // Initialize database and start server
 initializeDatabase().then(() => {

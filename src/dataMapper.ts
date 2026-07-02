@@ -1,4 +1,4 @@
-import { Member, ChurchEvent, GivingRecord, FollowUpRecord, MemberOption, LeaderOption, Visitor, AttendanceRecord } from './types';
+import { Member, ChurchEvent, GivingRecord, FollowUpRecord, MemberOption, LeaderOption, Visitor, AttendanceRecord, Department, Sermon, Announcement, PrayerRequest, Devotional, MediaAsset } from './types';
 
 // Transform database member to frontend member
 export function dbMemberToFrontend(dbMember: any): Member {
@@ -73,9 +73,9 @@ export function dbEventToFrontend(dbEvent: any): ChurchEvent {
     date: dbEvent.event_date,
     time: dbEvent.event_time || '00:00',
     location: dbEvent.location || '',
-    category: 'Special', // DB doesn't have this field yet
+    category: 'Special',
     description: dbEvent.description || '',
-    rsvps: [] // Would need to fetch from event_registrations
+    rsvps: dbEvent.rsvp_emails || []
   };
 }
 
@@ -116,7 +116,7 @@ export function frontendGivingToDb(giving: GivingRecord): any {
     member_id: memberId,
     amount: giving.amount,
     donation_type: mapFrontendDonationType(giving.type),
-    notes: giving.description || ''
+    notes: giving.receiptNumber || ''
   };
 }
 
@@ -282,4 +282,147 @@ function mapFrontendServiceType(frontendType: any): string {
     'Special Program': 'special program'
   };
   return typeMap[frontendType] || 'sunday service';
+}
+
+export function dbMinistryToFrontend(dbMinistry: any): Department {
+  return {
+    id: `D-${dbMinistry.id}`,
+    name: dbMinistry.name as Department['name'],
+    leaderName: dbMinistry.leader_name || 'Vacant',
+    leaderId: dbMinistry.leader_id ? `M-${dbMinistry.leader_id}` : '',
+    membersCount: parseInt(dbMinistry.member_count) || 0,
+    meetingSchedule: dbMinistry.description || '',
+    budget: 0,
+    spent: 0,
+    reports: []
+  };
+}
+
+export function frontendDepartmentToDb(dept: Department): any {
+  let leaderId = null;
+  if (dept.leaderId && dept.leaderId.startsWith('M-')) {
+    leaderId = parseInt(dept.leaderId.replace('M-', ''));
+  }
+  return {
+    name: dept.name,
+    description: dept.meetingSchedule,
+    leader_id: leaderId
+  };
+}
+
+export function dbSermonToFrontend(db: any): Sermon {
+  return {
+    id: `S-${db.id}`,
+    title: db.title,
+    speaker: db.speaker || '',
+    date: db.sermon_date?.split('T')[0] || '',
+    theme: db.theme || '',
+    bibleVerse: db.bible_verse || '',
+    notes: db.notes || '',
+    videoUrl: db.video_url || undefined,
+    audioUrl: db.audio_url || undefined
+  };
+}
+
+export function frontendSermonToDb(sermon: Sermon): any {
+  return {
+    title: sermon.title,
+    speaker: sermon.speaker,
+    sermon_date: sermon.date,
+    theme: sermon.theme,
+    bible_verse: sermon.bibleVerse,
+    notes: sermon.notes,
+    video_url: sermon.videoUrl,
+    audio_url: sermon.audioUrl
+  };
+}
+
+export function dbAnnouncementToFrontend(db: any): Announcement {
+  return {
+    id: `ANN-${db.id}`,
+    title: db.title,
+    content: db.content || '',
+    date: db.announcement_date?.split('T')[0] || '',
+    category: db.category || 'General',
+    status: db.status || 'Published'
+  };
+}
+
+export function frontendAnnouncementToDb(ann: Announcement): any {
+  return {
+    title: ann.title,
+    content: ann.content,
+    announcement_date: ann.date,
+    category: ann.category,
+    status: ann.status
+  };
+}
+
+export function dbPrayerToFrontend(db: any): PrayerRequest {
+  return {
+    id: `PR-${db.id}`,
+    submittedBy: db.submitted_by || '',
+    email: db.email || '',
+    request: db.request || '',
+    isPrivate: db.is_private || false,
+    status: db.status || 'Pending',
+    date: db.request_date?.split('T')[0] || '',
+    notes: db.notes || ''
+  };
+}
+
+export function frontendPrayerToDb(prayer: PrayerRequest): any {
+  return {
+    submitted_by: prayer.submittedBy,
+    email: prayer.email,
+    request: prayer.request,
+    is_private: prayer.isPrivate,
+    status: prayer.status,
+    request_date: prayer.date,
+    notes: prayer.notes
+  };
+}
+
+export function dbDevotionalToFrontend(db: any): Devotional {
+  return {
+    date: db.devotional_date?.split('T')[0] || '',
+    title: db.title,
+    verse: db.scripture || '',
+    reference: db.author || '',
+    devotionText: db.content || '',
+    prayerPoints: [],
+    declaration: ''
+  };
+}
+
+export function frontendDevotionalToDb(dev: Devotional): any {
+  return {
+    title: dev.title,
+    content: dev.devotionText,
+    devotional_date: dev.date,
+    scripture: dev.verse || dev.reference,
+    author: dev.reference
+  };
+}
+
+export function dbMediaToFrontend(db: any): MediaAsset {
+  return {
+    id: `MED-${db.id}`,
+    title: db.title,
+    type: (db.media_type || 'Photo') as MediaAsset['type'],
+    url: db.url || '',
+    approved: true,
+    date: db.upload_date?.split('T')[0] || '',
+    submittedBy: db.description || undefined
+  };
+}
+
+export function frontendMediaToDb(media: MediaAsset): any {
+  return {
+    title: media.title,
+    media_type: media.type,
+    url: media.url,
+    description: media.submittedBy || '',
+    upload_date: media.date
+  };
 }

@@ -33,6 +33,14 @@ const roleAccessMap: Record<Role, string[]> = {
     'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements',
     'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'
   ],
+  Admin: [
+    'Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up',
+    'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements',
+    'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'
+  ],
+  Media: [
+    'Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional'
+  ],
   'Finance Officer': [
     'Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings'
   ],

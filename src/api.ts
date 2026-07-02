@@ -1,4 +1,5 @@
-const API_BASE_URL = 'https://churchapi-o3pk.onrender.com/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL
+  || (import.meta.env.DEV ? '/api' : 'https://churchapi-o3pk.onrender.com/api');
 
 // Generic API helper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
@@ -161,6 +162,46 @@ export const settingsApi = {
 
 // Health check
 export const healthCheck = () => apiCall('/health');
+
+// Sermons API
+export const sermonsApi = {
+  getAll: () => apiCall('/sermons'),
+  create: (data: any) => apiCall('/sermons', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/sermons/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/sermons/${id}`, { method: 'DELETE' }),
+};
+
+// Announcements API
+export const announcementsApi = {
+  getAll: () => apiCall('/announcements'),
+  create: (data: any) => apiCall('/announcements', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/announcements/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/announcements/${id}`, { method: 'DELETE' }),
+};
+
+// Prayer requests API
+export const prayerApi = {
+  getAll: () => apiCall('/prayer'),
+  create: (data: any) => apiCall('/prayer', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/prayer/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/prayer/${id}`, { method: 'DELETE' }),
+};
+
+// Devotionals API
+export const devotionalsApi = {
+  getAll: () => apiCall('/devotionals'),
+  create: (data: any) => apiCall('/devotionals', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/devotionals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/devotionals/${id}`, { method: 'DELETE' }),
+};
+
+// Media API
+export const mediaApi = {
+  getAll: () => apiCall('/media'),
+  create: (data: any) => apiCall('/media', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/media/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  delete: (id: number) => apiCall(`/media/${id}`, { method: 'DELETE' }),
+};
 
 // Auth API
 export const authApi = {

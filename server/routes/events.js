@@ -6,7 +6,15 @@ const router = express.Router();
 // Get all events
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM events ORDER BY event_date ASC');
+    const result = await pool.query(`
+      SELECT e.*,
+        COALESCE(array_agg(m.email) FILTER (WHERE m.email IS NOT NULL), '{}') AS rsvp_emails
+      FROM events e
+      LEFT JOIN event_registrations er ON e.id = er.event_id
+      LEFT JOIN members m ON er.member_id = m.id
+      GROUP BY e.id
+      ORDER BY e.event_date ASC
+    `);
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
