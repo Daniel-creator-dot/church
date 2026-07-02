@@ -232,6 +232,7 @@ export const volunteersApi = {
   getAssignments: () => apiCall('/volunteers/assignments'),
   createAssignment: (data: any) => apiCall('/volunteers/assignments', { method: 'POST', body: JSON.stringify(data) }),
   updateAssignment: (id: number, data: any) => apiCall(`/volunteers/assignments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  sendReminders: (data: { days?: number; sent_by: string }) => apiCall('/volunteers/remind', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const worshipApi = {
@@ -240,6 +241,11 @@ export const worshipApi = {
   getPlans: () => apiCall('/worship/plans'),
   getPlan: (id: number) => apiCall(`/worship/plans/${id}`),
   createPlan: (data: any) => apiCall('/worship/plans', { method: 'POST', body: JSON.stringify(data) }),
+  updatePlan: (id: number, data: any) => apiCall(`/worship/plans/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  addPlanItem: (planId: number, data: any) => apiCall(`/worship/plans/${planId}/items`, { method: 'POST', body: JSON.stringify(data) }),
+  updatePlanItem: (planId: number, itemId: number, data: any) => apiCall(`/worship/plans/${planId}/items/${itemId}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deletePlanItem: (planId: number, itemId: number) => apiCall(`/worship/plans/${planId}/items/${itemId}`, { method: 'DELETE' }),
+  reorderPlanItems: (planId: number, itemIds: number[]) => apiCall(`/worship/plans/${planId}/items/reorder`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
 };
 
 export const communicationsApi = {

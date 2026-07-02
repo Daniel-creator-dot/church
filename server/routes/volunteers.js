@@ -6,9 +6,9 @@ const router = express.Router();
 router.get('/roles', async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT vr.*, m.name as ministry_name
+      SELECT vr.*, ministries.name as ministry_name
       FROM volunteer_roles vr
-      LEFT JOIN ministries m ON vr.ministry_id = m.id
+      LEFT JOIN ministries ON vr.ministry_id = ministries.id
       ORDER BY vr.name
     `);
     res.json(result.rows);
@@ -68,6 +68,58 @@ router.put('/assignments/:id', async (req, res) => {
     );
     if (!result.rows.length) return res.status(404).json({ error: 'Assignment not found' });
     res.json(result.rows[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Send email reminders for upcoming volunteer assignments (logs to communications)
+router.post('/remind', async (req, res) => {
+  try {
+    const { days = 7, sent_by } = req.body;
+    const upcoming = await pool.query(`
+      SELECT va.*, m.email, m.first_name, m.last_name, e.title as event_title
+      FROM volunteer_assignments va
+      JOIN members m ON va.member_id = m.id
+      LEFT JOIN events e ON va.event_id = e.id
+      WHERE va.assignment_date BETWEEN CURRENT_DATE AND (CURRENT_DATE + $1::integer)
+        AND va.status IN ('Scheduled', 'Confirmed')
+        AND m.email IS NOT NULL AND m.email != ''
+      ORDER BY va.assignment_date ASC
+    `, [days]);
+
+    const reminders = [];
+    for (const row of upcoming.rows) {
+      const subject = `Volunteer Reminder: ${row.role_name} on ${row.assignment_date}`;
+      const eventPart = row.event_title ? ` for "${row.event_title}"` : '';
+      const body = `Dear ${row.first_name},\n\nThis is a reminder that you are scheduled to serve as ${row.role_name}${eventPart} on ${row.assignment_date}.\n\nThank you for serving!\nBethel Baptist Church`;
+
+      await pool.query(
+        `INSERT INTO communications (subject, body, channel, target_group, status, sent_by)
+         VALUES ($1, $2, 'email', 'volunteers', 'Sent', $3)`,
+        [subject, body, sent_by || 'system']
+      );
+
+      await pool.query(
+        `UPDATE volunteer_assignments SET status = 'Confirmed', notes = COALESCE(notes, '') || ' [Reminded]' WHERE id = $1`,
+        [row.id]
+      );
+
+      const mailtoSubject = encodeURIComponent(subject);
+      const mailtoBody = encodeURIComponent(body);
+      reminders.push({
+        assignmentId: row.id,
+        memberName: `${row.first_name} ${row.last_name}`,
+        email: row.email,
+        roleName: row.role_name,
+        assignmentDate: row.assignment_date,
+        eventTitle: row.event_title,
+        subject,
+        mailto: `mailto:${row.email}?subject=${mailtoSubject}&body=${mailtoBody}`,
+      });
+    }
+
+    res.json({ count: reminders.length, reminders });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

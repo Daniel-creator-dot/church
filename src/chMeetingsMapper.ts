@@ -1,6 +1,6 @@
 import {
   Household, Fund, PledgeCampaign, Pledge, VolunteerRole, VolunteerAssignment,
-  Song, WorshipPlan, Communication, CustomForm, CheckInRecord, FinanceTransaction, ChurchEvent
+  Song, WorshipPlan, WorshipPlanItem, Communication, CustomForm, CheckInRecord, FinanceTransaction, ChurchEvent
 } from './types';
 
 export function dbHouseholdToFrontend(db: any): Household {
@@ -90,6 +90,34 @@ export function dbSongToFrontend(db: any): Song {
   };
 }
 
+export function dbWorshipPlanItemToFrontend(item: any): WorshipPlanItem {
+  return {
+    id: `WPI-${item.id}`,
+    itemType: item.item_type,
+    title: item.title,
+    songId: item.song_id ? `SONG-${item.song_id}` : undefined,
+    songTitle: item.song_title || '',
+    durationMinutes: item.duration_minutes,
+    assignedTo: item.assigned_to || '',
+    sortOrder: item.sort_order || 0,
+    notes: item.notes || '',
+  };
+}
+
+export function frontendWorshipItemToDb(item: Partial<WorshipPlanItem>): any {
+  let songId = null;
+  if (item.songId?.startsWith('SONG-')) songId = parseInt(item.songId.replace('SONG-', ''));
+  return {
+    item_type: item.itemType,
+    title: item.title,
+    song_id: songId,
+    duration_minutes: item.durationMinutes,
+    assigned_to: item.assignedTo,
+    notes: item.notes,
+    sort_order: item.sortOrder,
+  };
+}
+
 export function dbWorshipPlanToFrontend(db: any): WorshipPlan {
   return {
     id: `WP-${db.id}`,
@@ -97,17 +125,7 @@ export function dbWorshipPlanToFrontend(db: any): WorshipPlan {
     serviceDate: db.service_date?.split('T')[0] || '',
     serviceType: db.service_type || 'Sunday Service',
     notes: db.notes || '',
-    items: db.items?.map((item: any) => ({
-      id: `WPI-${item.id}`,
-      itemType: item.item_type,
-      title: item.title,
-      songId: item.song_id ? `SONG-${item.song_id}` : undefined,
-      songTitle: item.song_title || '',
-      durationMinutes: item.duration_minutes,
-      assignedTo: item.assigned_to || '',
-      sortOrder: item.sort_order || 0,
-      notes: item.notes || '',
-    })),
+    items: db.items?.map((item: any) => dbWorshipPlanItemToFrontend(item)),
   };
 }
 

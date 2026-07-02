@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Role, Member, ChurchEvent, Household, Fund, PledgeCampaign, Pledge,
-  VolunteerRole, VolunteerAssignment, Song, WorshipPlan, Communication,
+  VolunteerRole, VolunteerAssignment, Song, WorshipPlan, WorshipPlanItem, Communication,
   CustomForm, CheckInRecord, FinanceTransaction, MemberOption
 } from '../types';
 import {
@@ -12,7 +12,8 @@ import {
   dbHouseholdToFrontend, dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
   dbVolunteerRoleToFrontend, dbVolunteerAssignmentToFrontend, dbSongToFrontend,
   dbWorshipPlanToFrontend, dbCommunicationToFrontend, dbFormToFrontend,
-  dbCheckInToFrontend, dbFinanceToFrontend, getCalendarDays, getEventsForDate
+  dbCheckInToFrontend, dbFinanceToFrontend, getCalendarDays, getEventsForDate,
+  dbWorshipPlanItemToFrontend, frontendWorshipItemToDb
 } from '../chMeetingsMapper';
 import { getTodayString } from '../utils/date';
 
@@ -80,6 +81,16 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [songKey, setSongKey] = useState('');
   const [planTitle, setPlanTitle] = useState('');
   const [planDate, setPlanDate] = useState(today);
+  const [selectedPlan, setSelectedPlan] = useState<WorshipPlan | null>(null);
+  const [planLoading, setPlanLoading] = useState(false);
+  const [itemType, setItemType] = useState<WorshipPlanItem['itemType']>('song');
+  const [itemTitle, setItemTitle] = useState('');
+  const [itemSongId, setItemSongId] = useState('');
+  const [itemDuration, setItemDuration] = useState(5);
+  const [itemAssignedTo, setItemAssignedTo] = useState('');
+  const [itemNotes, setItemNotes] = useState('');
+  const [reminderResult, setReminderResult] = useState<{ count: number; reminders: { memberName: string; email: string; mailto: string; assignmentDate: string; roleName: string }[] } | null>(null);
+  const [reminderLoading, setReminderLoading] = useState(false);
 
   // Pledge form state
   const [campaignName, setCampaignName] = useState('');
@@ -168,9 +179,76 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
     if (!planTitle) return;
     try {
       const saved = await worshipApi.createPlan({ title: planTitle, service_date: planDate, service_type: 'Sunday Service' });
-      props.onUpdateWorshipPlans([dbWorshipPlanToFrontend(saved), ...props.worshipPlans]);
+      const plan = dbWorshipPlanToFrontend(saved);
+      props.onUpdateWorshipPlans([plan, ...props.worshipPlans]);
       setPlanTitle('');
+      await loadPlan(plan.id);
     } catch (e) { console.error(e); }
+  };
+
+  const loadPlan = async (planId: string) => {
+    const dbId = parseInt(planId.replace('WP-', ''));
+    setPlanLoading(true);
+    try {
+      const data = await worshipApi.getPlan(dbId);
+      setSelectedPlan(dbWorshipPlanToFrontend(data));
+    } catch (e) { console.error(e); }
+    finally { setPlanLoading(false); }
+  };
+
+  const handleAddPlanItem = async () => {
+    if (!selectedPlan || !itemTitle) return;
+    try {
+      const planDbId = parseInt(selectedPlan.id.replace('WP-', ''));
+      const saved = await worshipApi.addPlanItem(planDbId, frontendWorshipItemToDb({
+        itemType, title: itemTitle, songId: itemSongId || undefined,
+        durationMinutes: itemDuration, assignedTo: itemAssignedTo, notes: itemNotes,
+      }));
+      const newItem = dbWorshipPlanItemToFrontend(saved);
+      setSelectedPlan({ ...selectedPlan, items: [...(selectedPlan.items || []), newItem] });
+      setItemTitle(''); setItemSongId(''); setItemAssignedTo(''); setItemNotes('');
+    } catch (e) { console.error(e); }
+  };
+
+  const handleDeletePlanItem = async (itemId: string) => {
+    if (!selectedPlan) return;
+    try {
+      const planDbId = parseInt(selectedPlan.id.replace('WP-', ''));
+      const itemDbId = parseInt(itemId.replace('WPI-', ''));
+      await worshipApi.deletePlanItem(planDbId, itemDbId);
+      setSelectedPlan({
+        ...selectedPlan,
+        items: (selectedPlan.items || []).filter(i => i.id !== itemId),
+      });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleMoveItem = async (itemId: string, direction: 'up' | 'down') => {
+    if (!selectedPlan?.items) return;
+    const items = [...selectedPlan.items].sort((a, b) => a.sortOrder - b.sortOrder);
+    const idx = items.findIndex(i => i.id === itemId);
+    if (idx < 0) return;
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= items.length) return;
+    [items[idx], items[swapIdx]] = [items[swapIdx], items[idx]];
+    const planDbId = parseInt(selectedPlan.id.replace('WP-', ''));
+    const itemIds = items.map(i => parseInt(i.id!.replace('WPI-', '')));
+    try {
+      await worshipApi.reorderPlanItems(planDbId, itemIds);
+      setSelectedPlan({ ...selectedPlan, items: items.map((it, i) => ({ ...it, sortOrder: i })) });
+    } catch (e) { console.error(e); }
+  };
+
+  const handleSendVolunteerReminders = async () => {
+    setReminderLoading(true);
+    setReminderResult(null);
+    try {
+      const result = await volunteersApi.sendReminders({ days: 7, sent_by: userEmail });
+      setReminderResult(result);
+      const refreshed = await volunteersApi.getAssignments();
+      props.onUpdateVolunteerAssignments(refreshed.map(dbVolunteerAssignmentToFrontend));
+    } catch (e) { console.error(e); alert('Failed to send reminders'); }
+    finally { setReminderLoading(false); }
   };
 
   const handleCreateFund = async () => {
@@ -341,9 +419,40 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="bg-gradient-to-r from-amber-50 to-white p-6 rounded-2xl border border-amber-100">
-          <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-people-fill text-amber-500 mr-2"></i>Volunteer Scheduling</h3>
-          <p className="text-sm text-slate-500 mt-1">Schedule volunteers for events and services — like ChMeetings volunteer rota.</p>
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-people-fill text-amber-500 mr-2"></i>Volunteer Scheduling</h3>
+              <p className="text-sm text-slate-500 mt-1">Schedule volunteers and send email reminders for upcoming assignments.</p>
+            </div>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleSendVolunteerReminders}
+                disabled={reminderLoading}
+                className="btn-primary text-xs flex items-center gap-2"
+              >
+                <i className="bi bi-envelope"></i>
+                {reminderLoading ? 'Sending...' : 'Send 7-Day Reminders'}
+              </button>
+            )}
+          </div>
         </div>
+        {reminderResult && (
+          <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl space-y-3">
+            <div className="font-bold text-emerald-800">
+              <i className="bi bi-check-circle mr-2"></i>
+              {reminderResult.count} reminder{reminderResult.count !== 1 ? 's' : ''} logged
+            </div>
+            <p className="text-xs text-emerald-700">Reminders saved to Communications. Click a volunteer to open your email client:</p>
+            <div className="flex flex-wrap gap-2">
+              {reminderResult.reminders.map((r, i) => (
+                <a key={i} href={r.mailto} className="text-xs font-bold px-3 py-2 rounded-xl bg-white border border-emerald-200 text-emerald-800 hover:bg-emerald-100">
+                  {r.memberName} · {r.assignmentDate}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {isAdmin && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -406,49 +515,153 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
 
   // ---- WORSHIP PLANNING ----
   if (activeSubView === 'Worship Planning') {
+    const sortedItems = [...(selectedPlan?.items || [])].sort((a, b) => a.sortOrder - b.sortOrder);
+    const totalDuration = sortedItems.reduce((sum, i) => sum + (i.durationMinutes || 0), 0);
+
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="bg-gradient-to-r from-purple-50 to-white p-6 rounded-2xl border border-purple-100">
           <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-music-note-beamed text-purple-500 mr-2"></i>Worship Planning</h3>
-          <p className="text-sm text-slate-500 mt-1">Song library and order-of-service planning — ChMeetings worship module.</p>
+          <p className="text-sm text-slate-500 mt-1">Song library and order-of-service editor — build your full worship flow.</p>
         </div>
         {isAdmin && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
               <h4 className="font-bold text-sm uppercase text-slate-600">Song Library</h4>
               <input value={songTitle} onChange={e => setSongTitle(e.target.value)} placeholder="Song title" className="input-elegant w-full" />
               <input value={songArtist} onChange={e => setSongArtist(e.target.value)} placeholder="Artist" className="input-elegant w-full" />
               <input value={songKey} onChange={e => setSongKey(e.target.value)} placeholder="Key (e.g. G, D)" className="input-elegant w-full" />
-              <button onClick={handleCreateSong} className="btn-primary w-full">Add to Library</button>
+              <button type="button" onClick={handleCreateSong} className="btn-primary w-full">Add to Library</button>
+              <div className="max-h-40 overflow-y-auto space-y-1">
+                {props.songs.slice(0, 8).map(s => (
+                  <div key={s.id} className="text-xs p-2 bg-slate-50 rounded-lg flex justify-between">
+                    <span>{s.title}</span><span className="text-amber-600 font-mono">{s.key}</span>
+                  </div>
+                ))}
+              </div>
             </div>
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-              <h4 className="font-bold text-sm uppercase text-slate-600">New Worship Plan</h4>
+              <h4 className="font-bold text-sm uppercase text-slate-600">New Service Plan</h4>
               <input value={planTitle} onChange={e => setPlanTitle(e.target.value)} placeholder="Service title" className="input-elegant w-full" />
               <input type="date" value={planDate} onChange={e => setPlanDate(e.target.value)} className="input-elegant w-full" />
-              <button onClick={handleCreatePlan} className="btn-primary w-full">Create Plan</button>
+              <button type="button" onClick={handleCreatePlan} className="btn-primary w-full">Create Plan</button>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {props.worshipPlans.map(p => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => loadPlan(p.id)}
+                    className={`w-full text-left p-3 rounded-xl text-sm transition-colors ${selectedPlan?.id === p.id ? 'bg-purple-100 border border-purple-300' : 'bg-slate-50 hover:bg-slate-100'}`}
+                  >
+                    <div className="font-medium">{p.title}</div>
+                    <div className="text-xs text-slate-500">{p.serviceDate}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+              <h4 className="font-bold text-sm uppercase text-slate-600">Add Service Item</h4>
+              {!selectedPlan ? (
+                <p className="text-sm text-slate-400">Select a plan to add items.</p>
+              ) : (
+                <>
+                  <select value={itemType} onChange={e => setItemType(e.target.value as WorshipPlanItem['itemType'])} className="input-elegant w-full">
+                    <option value="song">Song</option>
+                    <option value="prayer">Prayer</option>
+                    <option value="sermon">Sermon</option>
+                    <option value="announcement">Announcement</option>
+                    <option value="offering">Offering</option>
+                    <option value="other">Other</option>
+                  </select>
+                  <input value={itemTitle} onChange={e => setItemTitle(e.target.value)} placeholder="Item title" className="input-elegant w-full" />
+                  {itemType === 'song' && (
+                    <select value={itemSongId} onChange={e => { setItemSongId(e.target.value); const s = props.songs.find(x => x.id === e.target.value); if (s) setItemTitle(s.title); }} className="input-elegant w-full">
+                      <option value="">Pick from library (optional)</option>
+                      {props.songs.map(s => <option key={s.id} value={s.id}>{s.title} — {s.key}</option>)}
+                    </select>
+                  )}
+                  <input type="number" value={itemDuration} onChange={e => setItemDuration(+e.target.value)} placeholder="Duration (min)" className="input-elegant w-full" min={1} />
+                  <input value={itemAssignedTo} onChange={e => setItemAssignedTo(e.target.value)} placeholder="Assigned to" className="input-elegant w-full" />
+                  <input value={itemNotes} onChange={e => setItemNotes(e.target.value)} placeholder="Notes" className="input-elegant w-full" />
+                  <button type="button" onClick={handleAddPlanItem} className="btn-primary w-full">Add to Order</button>
+                </>
+              )}
             </div>
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        {selectedPlan && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h4 className="font-bold mb-4">Songs ({props.songs.length})</h4>
-            {props.songs.map(s => (
-              <div key={s.id} className="flex justify-between p-3 bg-slate-50 rounded-xl mb-2 text-sm">
-                <div><span className="font-medium">{s.title}</span> <span className="text-slate-400">— {s.artist}</span></div>
-                <span className="text-xs text-amber-600 font-mono">{s.key}</span>
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h4 className="text-lg font-bold text-slate-800">{selectedPlan.title}</h4>
+                <p className="text-sm text-slate-500">{selectedPlan.serviceDate} · {sortedItems.length} items · ~{totalDuration} min</p>
               </div>
-            ))}
-          </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-            <h4 className="font-bold mb-4">Service Plans ({props.worshipPlans.length})</h4>
-            {props.worshipPlans.map(p => (
-              <div key={p.id} className="p-3 bg-slate-50 rounded-xl mb-2 text-sm">
-                <div className="font-medium">{p.title}</div>
-                <div className="text-xs text-slate-500">{p.serviceDate} · {p.serviceType}</div>
+              {planLoading && <span className="text-xs text-slate-400">Loading...</span>}
+            </div>
+            {sortedItems.length === 0 ? (
+              <p className="text-sm text-slate-400 text-center py-8">No items yet — add songs, prayers, and sermon to build the order of service.</p>
+            ) : (
+              <div className="space-y-2">
+                {sortedItems.map((item, idx) => (
+                  <div key={item.id} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 group">
+                    <div className="w-8 h-8 bg-purple-100 text-purple-700 rounded-lg flex items-center justify-center text-xs font-bold shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold uppercase text-purple-600 bg-purple-50 px-2 py-0.5 rounded">{item.itemType}</span>
+                        <span className="font-semibold text-slate-800 truncate">{item.title}</span>
+                        {item.durationMinutes && <span className="text-xs text-slate-400">{item.durationMinutes}m</span>}
+                      </div>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {item.assignedTo && <span>Led by {item.assignedTo}</span>}
+                        {item.songTitle && <span> · {item.songTitle}</span>}
+                        {item.notes && <span> · {item.notes}</span>}
+                      </div>
+                    </div>
+                    {isAdmin && item.id && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button type="button" onClick={() => handleMoveItem(item.id!, 'up')} disabled={idx === 0} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-30">
+                          <i className="bi bi-chevron-up text-xs"></i>
+                        </button>
+                        <button type="button" onClick={() => handleMoveItem(item.id!, 'down')} disabled={idx === sortedItems.length - 1} className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-white disabled:opacity-30">
+                          <i className="bi bi-chevron-down text-xs"></i>
+                        </button>
+                        <button type="button" onClick={() => handleDeletePlanItem(item.id!)} className="p-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50">
+                          <i className="bi bi-trash text-xs"></i>
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
           </div>
-        </div>
+        )}
+
+        {!selectedPlan && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h4 className="font-bold mb-4">Songs ({props.songs.length})</h4>
+              {props.songs.map(s => (
+                <div key={s.id} className="flex justify-between p-3 bg-slate-50 rounded-xl mb-2 text-sm">
+                  <div><span className="font-medium">{s.title}</span> <span className="text-slate-400">— {s.artist}</span></div>
+                  <span className="text-xs text-amber-600 font-mono">{s.key}</span>
+                </div>
+              ))}
+            </div>
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h4 className="font-bold mb-4">Service Plans ({props.worshipPlans.length})</h4>
+              {props.worshipPlans.map(p => (
+                <button key={p.id} type="button" onClick={() => loadPlan(p.id)} className="w-full text-left p-3 bg-slate-50 rounded-xl mb-2 text-sm hover:bg-purple-50 transition-colors">
+                  <div className="font-medium">{p.title}</div>
+                  <div className="text-xs text-slate-500">{p.serviceDate} · {p.serviceType}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }

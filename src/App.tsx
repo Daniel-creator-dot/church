@@ -60,6 +60,7 @@ import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
 import PublicCheckInView from './components/PublicCheckInView';
 import PublicFormView from './components/PublicFormView';
+import MemberDirectoryView from './components/MemberDirectoryView';
 import LoginView from './components/LoginView';
 import ChMeetingsViews from './components/ChMeetingsViews';
 import {
@@ -87,24 +88,24 @@ const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
 };
 
 const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
-  const baseSuperAdmin = ['Dashboard', 'Churches', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings', ...CHMEETINGS_TABS];
+  const baseSuperAdmin = ['Dashboard', 'Churches', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings', ...CHMEETINGS_TABS];
   if (role === 'Super Admin') return baseSuperAdmin.includes(tabName);
   if (role === 'Admin') return baseSuperAdmin.filter(t => t !== 'Churches').includes(tabName);
   if (tabName === 'Churches') return false;
 
   switch (role) {
     case 'Pastor':
-      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
+      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Church Administrator':
-      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
+      return ['Dashboard', 'Members', 'Directory', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Finance Officer':
       return ['Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Department Leader':
-      return ['Dashboard', 'Attendance', 'Departments', 'Follow Up', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Calendar', 'Volunteers', 'Check-In'].includes(tabName);
+      return ['Dashboard', 'Directory', 'Attendance', 'Departments', 'Follow Up', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Calendar', 'Volunteers', 'Check-In'].includes(tabName);
     case 'Media':
       return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional', 'Worship Planning', 'Calendar'].includes(tabName);
     case 'Member':
-      return ['Dashboard', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Calendar', 'Pledges & Funds', 'Forms'].includes(tabName);
+      return ['Dashboard', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Directory', 'Calendar', 'Pledges & Funds', 'Forms'].includes(tabName);
     default:
       return false;
   }
@@ -424,6 +425,7 @@ export default function App() {
     
     // Member management group
     { name: 'Members', icon: 'bi-people', viewGroup: 'Administration' },
+    { name: 'Directory', icon: 'bi-journal-bookmark', viewGroup: 'Administration' },
     { name: 'Visitors', icon: 'bi-person-plus', viewGroup: 'Administration' },
     { name: 'Attendance', icon: 'bi-calendar3', viewGroup: 'Administration' },
     { name: 'Departments', icon: 'bi-folder', viewGroup: 'Administration' },
@@ -686,6 +688,10 @@ export default function App() {
               currencyCode={currencyCode}
               formatCurrency={formatCurrency}
             />
+          )}
+
+          {!isLoading && activeTab === 'Directory' && (
+            <MemberDirectoryView activeRole={activeRole} members={members} />
           )}
 
           {/* Tabs 2-6: Management & Administration Subviews */}
