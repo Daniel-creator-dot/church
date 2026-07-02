@@ -49,8 +49,20 @@ import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
 import LoginView from './components/LoginView';
 
+// Map database roles to frontend roles
+const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
+  const roleMapping: Record<string, Role> = {
+    'Admin': 'Admin',
+    'Pastor': 'Pastor',
+    'Member': 'Member'
+  };
+  return roleMapping[dbRole] || 'Member';
+};
+
 const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
   if (role === 'Super Admin') return ['Dashboard', 'Churches', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'].includes(tabName);
+  
+  if (role === 'Admin') return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'].includes(tabName);
   
   if (tabName === 'Churches') return false;
   
@@ -262,7 +274,8 @@ export default function App() {
   // Login handler
   const handleLogin = (user: User) => {
     setCurrentUserEmail(user.email);
-    setActiveRole(user.role);
+    const mappedRole = mapDatabaseRoleToFrontendRole(user.role);
+    setActiveRole(mappedRole);
     setIsAuthenticated(true);
   };
 

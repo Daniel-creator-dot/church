@@ -4,6 +4,7 @@
 
 export type Role = 
   | 'Super Admin' 
+  | 'Admin' 
   | 'Pastor' 
   | 'Church Administrator' 
   | 'Finance Officer' 
