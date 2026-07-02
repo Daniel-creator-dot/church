@@ -221,7 +221,7 @@ export default function ChurchLifeViews({
   // Scripture Projection states
   const [projectionText, setProjectionText] = useState('For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life.');
   const [projectionReference, setProjectionReference] = useState('John 3:16');
-  const [projectionLiveText, setProjectionLiveText] = useState('Welcome to Morning Church. Live Service is commencing soon.');
+  const [projectionLiveText, setProjectionLiveText] = useState('Welcome to Bethel Baptist Church. Live Service is commencing soon.');
   const [projectionLiveReference, setProjectionLiveReference] = useState('Welcome Slide');
   const [projectionTheme, setProjectionTheme] = useState<'midnight' | 'heavenly' | 'gold' | 'pure' | 'purple'>('midnight');
   const [projectionFontSize, setProjectionFontSize] = useState<'text-xl' | 'text-2xl' | 'text-3xl' | 'text-4xl' | 'text-5xl'>('text-3xl');
@@ -792,7 +792,7 @@ export default function ChurchLifeViews({
             {/* Printable Receipt Frame */}
             <div id="receipt-print-frame" className="border-2 border-slate-900 p-6 rounded-none space-y-6 bg-white text-center font-sans">
               <div className="space-y-1">
-                <h3 className="text-xl font-black text-slate-900 uppercase">Morning Church</h3>
+                <h3 className="text-xl font-black text-slate-900 uppercase">Bethel Baptist Church</h3>
                 <p className="text-[10px] text-slate-400 uppercase tracking-widest font-extrabold font-mono">Official Payment Receipt</p>
               </div>
 
@@ -1768,7 +1768,7 @@ export default function ChurchLifeViews({
                             M
                           </div>
                           <h4 className="text-sm font-sans font-extrabold uppercase tracking-widest leading-none">
-                            Morning Church
+                            Bethel Baptist Church
                           </h4>
                           <span className="block text-[10px] font-mono tracking-widest text-amber-500 uppercase font-black">
                             "Thy Word Is Truth"

@@ -239,7 +239,7 @@ export default function DashboardView({
         <div className="absolute inset-y-0 right-0 w-1/3 bg-[url('https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=900&q=80')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 space-y-4 max-w-2xl">
           <div className="inline-flex items-center gap-2 border border-[#F59E0B]/30 bg-[#F59E0B]/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#FDE68A]">
-            Morning Church Portal
+            Bethel Baptist Church Portal
           </div>
           <h1 className="text-3xl md:text-4xl font-sans font-light tracking-tight leading-none">
             Grace and Peace be multiplied to you.

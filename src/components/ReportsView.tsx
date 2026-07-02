@@ -558,7 +558,7 @@ export default function ReportsView({
             {/* Printable executive frame */}
             <div id="executive-brief-print" className="border-2 border-slate-900 p-8 rounded-none space-y-8 bg-white font-sans text-slate-800">
               <div className="text-center space-y-2 border-b border-slate-200 pb-6">
-                <h2 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Morning Church</h2>
+                <h2 className="text-2xl font-black tracking-tight text-slate-900 uppercase">Bethel Baptist Church</h2>
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-extrabold">Executive Ministry Briefing Report</p>
                 <div className="text-[10px] text-slate-400 pt-1 font-mono">
                   Generated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })} • Author: {activeRole}

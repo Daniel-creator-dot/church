@@ -107,7 +107,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-full mb-4">
             <i className="bi bi-church text-white text-2xl"></i>
           </div>
-          <h1 className="text-2xl font-bold text-slate-800">Morning Church</h1>
+          <h1 className="text-2xl font-bold text-slate-800">Bethel Baptist Church</h1>
           <p className="text-sm text-slate-500">
             {showForgotPassword ? 'Reset your password' : isLogin ? 'Sign in to your account' : 'Create your account'}
           </p>
@@ -387,7 +387,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
 
         {/* Footer */}
         <div className="text-center text-xs text-slate-400">
-          <p>© 2026 Morning Church Management System</p>
+          <p>© 2026 Bethel Baptist Church Management System</p>
         </div>
       </div>
     </div>

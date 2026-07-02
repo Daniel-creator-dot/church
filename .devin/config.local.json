@@ -15,7 +15,11 @@
       "Exec(git status)",
       "Exec(git remote)",
       "Exec(git init)",
-      "Exec(git add)"
+      "Exec(git add)",
+      "Exec(git commit)",
+      "Exec(git push)",
+      "Exec(git diff)",
+      "Exec(del)"
     ]
   }
 }

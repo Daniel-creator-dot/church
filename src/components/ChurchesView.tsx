@@ -134,7 +134,7 @@ export default function ChurchesView({
                 id="church-name-input"
                 type="text" required
                 className="input-elegant"
-                placeholder="e.g. Morning Church Grace Cathedral"
+                placeholder="e.g. Bethel Baptist Church Grace Cathedral"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />

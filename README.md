@@ -1,4 +1,4 @@
-# Church Management System
+# Bethel Baptist Church Management System
 
 A comprehensive church management system with member management, donations, events, ministries, and reports.
 

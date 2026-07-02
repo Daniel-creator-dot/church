@@ -419,7 +419,7 @@ export default function App() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-full animate-pulse">
             <i className="bi bi-church text-white text-2xl"></i>
           </div>
-          <p className="text-slate-600 font-medium">Loading Morning Church...</p>
+          <p className="text-slate-600 font-medium">Loading Bethel Baptist Church...</p>
         </div>
       </div>
     );
@@ -435,11 +435,11 @@ export default function App() {
         <div className="p-6 border-b border-slate-200/60 flex items-center justify-between bg-white/50 backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-[#F59E0B] to-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-amber-500/20">
-              M
+              B
             </div>
             <div>
-              <span className="block font-sans font-extrabold text-sm uppercase tracking-tight leading-tight text-slate-900">Morning Church</span>
-              <span className="block font-mono text-[9px] text-[#F59E0B] font-extrabold uppercase tracking-wider">Worship Portal</span>
+              <span className="block font-sans font-extrabold text-sm uppercase tracking-tight leading-tight text-slate-900">Bethel Baptist Church</span>
+              <span className="block font-mono text-[9px] text-[#F59E0B] font-extrabold uppercase tracking-wider">Management Portal</span>
             </div>
           </div>
           <button 
@@ -542,7 +542,7 @@ export default function App() {
                 {activeTab}
               </h2>
               <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                Morning Church Governance & Ministry Hub
+                Bethel Baptist Church Governance & Ministry Hub
               </span>
             </div>
           </div>

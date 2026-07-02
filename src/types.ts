@@ -1,5 +1,5 @@
 /**
- * Types & Interfaces for Morning Church Web Application
+ * Types & Interfaces for Bethel Baptist Church Web Application
  */
 
 export type Role = 
