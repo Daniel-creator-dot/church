@@ -14,6 +14,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
   const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -60,6 +61,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
         password,
         phone,
         address,
+        date_of_birth: dateOfBirth,
       });
       
       setSuccess(response.message || 'Registration successful! You can now login with your email and the default password: zxcv123$$');
@@ -311,6 +313,19 @@ export default function LoginView({ onLogin }: LoginViewProps) {
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="123 Main St"
+                className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
+              />
+            </div>
+
+            {/* Date of Birth (Optional) */}
+            <div>
+              <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                value={dateOfBirth}
+                onChange={(e) => setDateOfBirth(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-sm"
               />
             </div>

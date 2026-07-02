@@ -76,7 +76,7 @@ router.post('/login', async (req, res) => {
 // Register endpoint
 router.post('/register', async (req, res) => {
   try {
-    const { first_name, last_name, email, password, phone, address } = req.body;
+    const { first_name, last_name, email, password, phone, address, date_of_birth } = req.body;
 
     if (!first_name || !last_name || !email) {
       return res.status(400).json({ error: 'First name, last name, and email are required' });
@@ -100,8 +100,8 @@ router.post('/register', async (req, res) => {
 
     // Create new user with default Member role
     const result = await pool.query(
-      'INSERT INTO members (first_name, last_name, email, password, phone, address, status, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, first_name, last_name, email, role',
-      [first_name, last_name, email, hashedPassword, phone || null, address || null, 'active', 'Member']
+      'INSERT INTO members (first_name, last_name, email, password, phone, address, date_of_birth, status, role) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id, first_name, last_name, email, role',
+      [first_name, last_name, email, hashedPassword, phone || null, address || null, date_of_birth || null, 'active', 'Member']
     );
 
     const user = result.rows[0];
