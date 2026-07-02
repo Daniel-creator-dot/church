@@ -1,0 +1,728 @@
+import React, { useState, useEffect } from 'react';
+
+import { 
+  Role, 
+  Member, 
+  Visitor, 
+  AttendanceRecord, 
+  GivingRecord, 
+  Sermon, 
+  ChurchEvent, 
+  Department, 
+  Announcement, 
+  PrayerRequest, 
+  FollowUpRecord, 
+  Devotional, 
+  MediaAsset, 
+  FinanceTransaction,
+  Church,
+  Book,
+  LiveStream,
+  MemberOption,
+  LeaderOption,
+  User
+} from './types';
+
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi } from './api';
+import { 
+  dbMemberToFrontend, 
+  frontendMemberToDb,
+  dbEventToFrontend, 
+  frontendEventToDb,
+  dbDonationToFrontend, 
+  frontendGivingToDb,
+  dbFollowUpToFrontend,
+  dbMemberToOption,
+  dbLeaderToOption,
+  dbVisitorToFrontend,
+  dbAttendanceToFrontend
+} from './dataMapper';
+
+import DashboardView from './components/DashboardView';
+import ManagementViews from './components/ManagementViews';
+import ChurchLifeViews from './components/ChurchLifeViews';
+import ReportsView from './components/ReportsView';
+import ChurchesView from './components/ChurchesView';
+import LiveStreamView from './components/LiveStreamView';
+import BookstoreView from './components/BookstoreView';
+import SettingsView from './components/SettingsView';
+import VisitorSignupView from './components/VisitorSignupView';
+import LoginView from './components/LoginView';
+
+const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
+  if (role === 'Super Admin') return ['Dashboard', 'Churches', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'].includes(tabName);
+  
+  if (tabName === 'Churches') return false;
+  
+  switch (role) {
+    case 'Pastor':
+      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings'].includes(tabName);
+
+    case 'Church Administrator':
+      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings'].includes(tabName);
+
+    case 'Finance Officer':
+      return ['Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings'].includes(tabName);
+
+    case 'Department Leader':
+      return [
+        'Dashboard',
+        'Attendance',
+        'Departments',
+        'Follow Up',
+        'Sermons',
+        'Events',
+        'Prayer Requests',
+        'Announcements',
+        'Devotional'
+      ].includes(tabName);
+
+    case 'Media':
+      return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional'].includes(tabName);
+
+    case 'Member':
+      return [
+        'Dashboard',
+        'Giving',
+        'Live Stream',
+        'Sermons',
+        'Events',
+        'Prayer Requests',
+        'Announcements',
+        'Devotional',
+        'Bookstore'
+      ].includes(tabName);
+
+    default:
+      return false;
+  }
+};
+
+export default function App() {
+  
+  // 1. STATE INITIALIZATION (Empty arrays - will fetch from API)
+  const [members, setMembers] = useState<Member[]>([]);
+  const [visitors, setVisitors] = useState<Visitor[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [giving, setGiving] = useState<GivingRecord[]>([]);
+  const [sermons, setSermons] = useState<Sermon[]>([]);
+  const [events, setEvents] = useState<ChurchEvent[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [prayerRequests, setPrayerRequests] = useState<PrayerRequest[]>([]);
+  const [followUps, setFollowUps] = useState<FollowUpRecord[]>([]);
+  const [devotionals, setDevotionals] = useState<Devotional[]>([]);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [transactions, setTransactions] = useState<FinanceTransaction[]>([]);
+
+  // Dropdown options for follow-ups
+  const [memberOptions, setMemberOptions] = useState<MemberOption[]>([]);
+  const [leaderOptions, setLeaderOptions] = useState<LeaderOption[]>([]);
+
+  // Multi-Church, Bookstore & Live Stream state (still local for now)
+  const [churches, setChurches] = useState<Church[]>([]);
+  const [activeChurchId, setActiveChurchId] = useState<string>('C-001');
+  const [books, setBooks] = useState<Book[]>([]);
+  const [purchasedBookIds, setPurchasedBookIds] = useState<string[]>([]);
+  const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
+
+  // Active Role State - will be set by login
+  const [activeRole, setActiveRole] = useState<Role>('Member');
+  
+  // Current User State - tracks logged-in member information
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>('');
+  const [currentMemberId, setCurrentMemberId] = useState<string>('');
+  
+  // Navigation View State
+  const [activeTab, setActiveTab] = useState<string>('Dashboard');
+  const [currencyCode, setCurrencyCode] = useState('USD');
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  
+  // Sidebar states
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Time state (real-time UTC/local clock)
+  const [currentTime, setCurrentTime] = useState('');
+
+  // Fetch data from API on mount or after authentication
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Check backend health
+        await healthCheck();
+
+        const settings = await settingsApi.get();
+        setCurrencyCode(settings.currencyCode || 'USD');
+        setCurrencySymbol(settings.currencySymbol || '$');
+        
+        // Fetch members
+        const membersData = await membersApi.getAll();
+        const membersFrontend = membersData.map(dbMemberToFrontend);
+        setMembers(membersFrontend);
+        
+        // Set current member ID based on email if authenticated
+        if (currentUserEmail) {
+          const currentUser = membersFrontend.find(m => m.email === currentUserEmail);
+          if (currentUser) {
+            setCurrentMemberId(currentUser.id);
+          }
+        }
+        
+        // Fetch visitors
+        const visitorsData = await visitorsApi.getAll();
+        setVisitors(visitorsData.map(dbVisitorToFrontend));
+
+        // Fetch attendance
+        const attendanceData = await attendanceApi.getAll();
+        setAttendance(attendanceData.map(dbAttendanceToFrontend));
+
+        // Fetch events
+        const eventsData = await eventsApi.getAll();
+        setEvents(eventsData.map(dbEventToFrontend));
+        
+        // Fetch donations
+        const donationsData = await donationsApi.getAll();
+        setGiving(donationsData.map(dbDonationToFrontend));
+        
+        // Fetch follow-ups
+        const followUpsData = await followupsApi.getAll();
+        setFollowUps(followUpsData.map(dbFollowUpToFrontend));
+        
+        // Fetch member options for dropdowns
+        const memberOptionsData = await followupsApi.getMembers();
+        setMemberOptions(memberOptionsData.map(dbMemberToOption));
+        
+        // Fetch leader options for dropdowns
+        const leaderOptionsData = await followupsApi.getLeaders();
+        setLeaderOptions(leaderOptionsData.map(dbLeaderToOption));
+        
+      } catch (error) {
+        console.error('Error fetching data from API:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    // Only fetch data if authenticated
+    if (isAuthenticated) {
+      fetchData();
+    }
+  }, [isAuthenticated, currentUserEmail]);
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 2. STATE UPDATE FUNCTIONS (API-based for members, events, donations)
+  const updateMembersState = async (newMembers: Member[]) => {
+    setMembers(newMembers);
+    // Note: In a real app, you'd sync with API here
+  };
+
+  const updateVisitorsState = (newVisitors: Visitor[]) => {
+    setVisitors(newVisitors);
+  };
+
+  const updateAttendanceState = (newAttendance: AttendanceRecord[]) => {
+    setAttendance(newAttendance);
+  };
+
+  const updateGivingState = async (newGiving: GivingRecord[]) => {
+    setGiving(newGiving);
+    // Note: In a real app, you'd sync with API here
+  };
+
+  const updateSermonsState = (newSermons: Sermon[]) => {
+    setSermons(newSermons);
+  };
+
+  const updateEventsState = async (newEvents: ChurchEvent[]) => {
+    setEvents(newEvents);
+    // Note: In a real app, you'd sync with API here
+  };
+
+  const updateDepartmentsState = (newDepts: Department[]) => {
+    setDepartments(newDepts);
+  };
+
+  // Login handler
+  const handleLogin = (user: User) => {
+    setCurrentUserEmail(user.email);
+    setActiveRole(user.role);
+    setIsAuthenticated(true);
+  };
+
+  // Logout handler
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUserEmail('');
+    setCurrentMemberId('');
+    setActiveRole('Super Admin');
+    setActiveTab('Dashboard');
+  };
+
+  const updateAnnouncementsState = (newAnnouncements: Announcement[]) => {
+    setAnnouncements(newAnnouncements);
+  };
+
+  const updatePrayerRequestsState = (newPrayers: PrayerRequest[]) => {
+    setPrayerRequests(newPrayers);
+  };
+
+  const updateFollowUpsState = (newFollows: FollowUpRecord[]) => {
+    setFollowUps(newFollows);
+  };
+
+  const updateDevotionalsState = (newDevotionals: Devotional[]) => {
+    setDevotionals(newDevotionals);
+  };
+
+  const updateMediaAssetsState = (newMedia: MediaAsset[]) => {
+    setMediaAssets(newMedia);
+  };
+
+  const updateChurchesState = (newChurches: Church[]) => {
+    setChurches(newChurches);
+  };
+
+  const updateActiveChurchIdState = (id: string) => {
+    setActiveChurchId(id);
+  };
+
+  const updateBooksState = (newBooks: Book[]) => {
+    setBooks(newBooks);
+  };
+
+  const updatePurchasedBooksState = (newIds: string[]) => {
+    setPurchasedBookIds(newIds);
+  };
+
+  const updateLiveStreamsState = (newStreams: LiveStream[]) => {
+    setLiveStreams(newStreams);
+  };
+
+  const handleRecordTransaction = (transaction: { type: 'Income' | 'Expense'; category: string; amount: number; description: string }) => {
+    const newTransaction: FinanceTransaction = {
+      id: `FT-${Math.floor(100 + Math.random() * 900)}`,
+      date: new Date().toISOString().split('T')[0],
+      type: transaction.type,
+      category: transaction.category,
+      amount: transaction.amount,
+      description: transaction.description,
+      approvedBy: activeRole
+    };
+    const updated = [newTransaction, ...transactions];
+    setTransactions(updated);
+  };
+
+  // Nav categories structure
+  const sidebarNavItems = [
+    { name: 'Dashboard', icon: 'bi-compass', viewGroup: 'Core' },
+    { name: 'Churches', icon: 'bi-building', viewGroup: 'Core' },
+    
+    // Member management group
+    { name: 'Members', icon: 'bi-people', viewGroup: 'Administration' },
+    { name: 'Visitors', icon: 'bi-person-plus', viewGroup: 'Administration' },
+    { name: 'Attendance', icon: 'bi-calendar3', viewGroup: 'Administration' },
+    { name: 'Departments', icon: 'bi-folder', viewGroup: 'Administration' },
+    { name: 'Follow Up', icon: 'bi-clock', viewGroup: 'Administration' },
+
+    // Church Life group
+    { name: 'Giving', icon: 'bi-coin', viewGroup: 'Church Life' },
+    { name: 'Live Stream', icon: 'bi-camera-video', viewGroup: 'Church Life' },
+    { name: 'Sermons', icon: 'bi-volume-up', viewGroup: 'Church Life' },
+    { name: 'Events', icon: 'bi-calendar-event', viewGroup: 'Church Life' },
+    { name: 'Prayer Requests', icon: 'bi-heart', viewGroup: 'Church Life' },
+    { name: 'Announcements', icon: 'bi-bell', viewGroup: 'Church Life' },
+    { name: 'Devotional', icon: 'bi-book', viewGroup: 'Church Life' },
+    { name: 'Bookstore', icon: 'bi-book-half', viewGroup: 'Church Life' },
+    { name: 'Media', icon: 'bi-image', viewGroup: 'Church Life' },
+
+    // Analytical Reporting group
+    { name: 'Reports', icon: 'bi-file-earmark-spreadsheet', viewGroup: 'Analytics' },
+    { name: 'Settings', icon: 'bi-sliders', viewGroup: 'Analytics' }
+  ];
+
+  // Helper for quick actions triggered from dashboard
+  const handleQuickAction = (actionType: string) => {
+    if (actionType === 'add-member') {
+      setActiveTab('Members');
+    } else if (actionType === 'record-giving') {
+      setActiveTab('Giving');
+    } else if (actionType === 'submit-prayer') {
+      setActiveTab('Prayer Requests');
+    }
+  };
+
+  // Daily word references for dashboard preview
+  const todayStr = '2026-06-30';
+  const currentDevotional = devotionals.find(d => d.date === todayStr) || devotionals[0];
+  const devotionalTitle = currentDevotional ? currentDevotional.title : 'Seeking God Early';
+
+  const handleCurrencyChange = async (code: string) => {
+    const symbolMap: Record<string, string> = { USD: '$', GHS: 'GH₵', EUR: '€', NGN: '₦' };
+    const nextSymbol = symbolMap[code] || '$';
+    setCurrencyCode(code);
+    setCurrencySymbol(nextSymbol);
+
+    try {
+      await settingsApi.updateCurrency(code, nextSymbol);
+    } catch (error) {
+      console.error('Failed to save currency:', error);
+    }
+  };
+
+  const formatCurrency = (amount: number) => `${currencySymbol}${amount.toLocaleString()}`;
+  const isVisitorSignupView = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'visitor-signup';
+
+  if (isVisitorSignupView) {
+    return <VisitorSignupView />;
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginView onLogin={handleLogin} />;
+  }
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-full animate-pulse">
+            <i className="bi bi-church text-white text-2xl"></i>
+          </div>
+          <p className="text-slate-600 font-medium">Loading Morning Church...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#F2F4F7] text-[#1A202C] flex flex-col md:flex-row antialiased font-sans">
+      
+      {/* 1. SIDEBAR NAVIGATION */}
+      <aside className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-white to-slate-50 text-slate-800 border-r border-slate-200/60 transition-all duration-300 ease-out flex flex-col justify-between shadow-lg ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        
+        {/* Sidebar Header */}
+        <div className="p-6 border-b border-slate-200/60 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-[#F59E0B] to-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-amber-500/20">
+              M
+            </div>
+            <div>
+              <span className="block font-sans font-extrabold text-sm uppercase tracking-tight leading-tight text-slate-900">Morning Church</span>
+              <span className="block font-mono text-[9px] text-[#F59E0B] font-extrabold uppercase tracking-wider">Worship Portal</span>
+            </div>
+          </div>
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="md:hidden text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-2 rounded-lg transition-colors"
+          >
+            <i className="bi bi-x-lg text-lg"></i>
+          </button>
+        </div>
+
+        {/* Sidebar Navigation Items */}
+        <div className="flex-1 overflow-y-auto px-0 py-6 space-y-6">
+          {/* Groupings of Navigation links */}
+          {['Core', 'Administration', 'Church Life', 'Analytics'].map(group => {
+            const items = sidebarNavItems.filter(item => item.viewGroup === group && isTabAllowedForRole(item.name, activeRole));
+            if (items.length === 0) return null;
+            return (
+              <div key={group} className="space-y-1">
+                <span className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-6 pb-2">
+                  {group}
+                </span>
+                <nav className="space-y-1">
+                  {items.map(item => {
+                    const iconClass = item.icon;
+                    const isActive = activeTab === item.name;
+                    return (
+                      <button
+                        key={item.name}
+                        onClick={() => {
+                          setActiveTab(item.name);
+                          setIsSidebarOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-6 py-3 text-xs font-medium transition-all duration-200 group relative ${
+                          isActive 
+                            ? 'bg-gradient-to-r from-amber-50 to-white text-slate-900 font-semibold border-l-4 border-[#F59E0B] shadow-sm' 
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50 border-l-4 border-transparent'
+                        }`}
+                      >
+                        <i className={`bi ${iconClass} text-sm shrink-0 transition-all duration-200 ${isActive ? 'text-[#F59E0B] scale-110' : 'text-slate-400 group-hover:scale-110 group-hover:text-slate-600'}`}></i>
+                        <span className="relative">{item.name}</span>
+                        {isActive && (
+                          <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse"></div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Sidebar Footer (Clock, active user email) */}
+        <div className="p-4 border-t border-slate-200/60 bg-gradient-to-r from-slate-50 to-white space-y-3">
+          <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
+            <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Synced
+            </span>
+            <span className="font-bold flex items-center gap-1 text-slate-700">
+              <i className="bi bi-clock text-[#F59E0B]"></i> {currentTime}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
+            <div className="w-8 h-8 bg-gradient-to-br from-amber-100 to-amber-50 text-[#F59E0B] rounded-lg flex items-center justify-center text-xs font-bold font-mono border border-amber-200">
+              MC
+            </div>
+            <div className="overflow-hidden flex-1">
+              <span className="block text-[10px] font-bold text-slate-800 truncate">{currentUserEmail}</span>
+              <span className="block text-[9px] text-slate-400">{activeRole}</span>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
+              title="Logout"
+            >
+              <i className="bi bi-box-arrow-right text-sm"></i>
+            </button>
+          </div>
+          <div className="bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 p-2 text-center text-[10px] text-slate-500 font-mono rounded-lg">
+            <span className="text-[#F59E0B] font-bold">V.2.4.0</span> Stable
+          </div>
+        </div>
+      </aside>
+
+      {/* 2. MAIN WORKSPACE CONTAINER */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        
+        {/* Top Sticky Header */}
+        <header className="sticky top-0 z-30 bg-gradient-to-r from-white to-slate-50 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="md:hidden text-slate-600 hover:text-slate-900 hover:bg-slate-100 p-2 rounded-xl border border-slate-200 transition-all"
+            >
+              <i className="bi bi-list text-lg"></i>
+            </button>
+            <div>
+              <h2 className="text-lg font-bold text-slate-800 leading-tight">
+                {activeTab}
+              </h2>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
+                Morning Church Governance & Ministry Hub
+              </span>
+            </div>
+          </div>
+
+          {/* Role Based Access Switcher Component - PROACTIVE SELECTION */}
+          <div className="flex items-center gap-3">
+            {/* Active Church Selector */}
+            <div className="hidden lg:flex items-center gap-2 bg-gradient-to-r from-amber-50 to-amber-100/50 p-1.5 rounded-xl border border-amber-200 shadow-sm">
+              <span className="text-[10px] font-extrabold text-[#F59E0B] uppercase tracking-wider px-2 flex items-center gap-1">
+                <i className="bi bi-building text-sm"></i> Campus Branch:
+              </span>
+              <select 
+                id="header-church-select"
+                className="bg-white border-none rounded-lg text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#F59E0B]/20 px-3 py-1.5 cursor-pointer shadow-sm"
+                value={activeChurchId}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  setActiveChurchId(id);
+                  const ch = churches.find(c => c.id === id);
+                  alert(`Switched workspace perspective to branch: ${ch?.name}`);
+                }}
+              >
+                {churches.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-sm">
+              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-2 flex items-center gap-1">
+                <i className="bi bi-shield-check text-sm text-[#F59E0B]"></i> Role:
+              </span>
+              <span className="bg-white border-none rounded-lg text-[11px] font-bold text-slate-700 px-3 py-1.5 shadow-sm">
+                {activeRole}
+              </span>
+            </div>
+
+            {/* Mobile simplified badge */}
+            <div className="sm:hidden bg-gradient-to-r from-slate-100 to-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-700 flex items-center gap-1 shadow-sm">
+              <i className="bi bi-crown-fill text-sm text-amber-500"></i> {activeRole}
+            </div>
+          </div>
+        </header>
+
+        {/* Core dynamic Content Panels based on Active Navigation Tab */}
+        <main className="p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto pb-16">
+          
+          {/* Loading State */}
+          {isLoading && (
+            <div className="flex items-center justify-center h-64">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#F59E0B] mx-auto mb-4"></div>
+                <p className="text-slate-500 text-sm">Loading data from database...</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Tab 1: Dashboard */}
+          {!isLoading && activeTab === 'Dashboard' && (
+            <DashboardView 
+              members={members}
+              visitors={visitors}
+              giving={giving}
+              events={events}
+              announcements={announcements}
+              prayerRequests={prayerRequests}
+              attendance={attendance}
+              activeRole={activeRole}
+              currentMemberId={currentMemberId}
+              onNavigate={(tab) => setActiveTab(tab)}
+              onQuickAction={handleQuickAction}
+              devotionalTitle={devotionalTitle}
+              currencySymbol={currencySymbol}
+              currencyCode={currencyCode}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* Tabs 2-6: Management & Administration Subviews */}
+          {!isLoading && ['Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up'].includes(activeTab) && (
+            <ManagementViews 
+              activeSubView={activeTab as any}
+              activeRole={activeRole}
+              members={members}
+              onUpdateMembers={updateMembersState}
+              visitors={visitors}
+              onUpdateVisitors={updateVisitorsState}
+              attendance={attendance}
+              onUpdateAttendance={updateAttendanceState}
+              departments={departments}
+              onUpdateDepartments={updateDepartmentsState}
+              followUps={followUps}
+              onUpdateFollowUps={updateFollowUpsState}
+              memberOptions={memberOptions}
+              leaderOptions={leaderOptions}
+            />
+          )}
+
+          {/* Tabs 7-13: Church Life & Spiritual Engagement Subviews */}
+          {!isLoading && ['Giving', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Media'].includes(activeTab) && (
+            <ChurchLifeViews 
+              activeSubView={activeTab as any}
+              activeRole={activeRole}
+              userEmail={currentUserEmail}
+              currentMemberId={currentMemberId}
+              sermons={sermons}
+              onUpdateSermons={updateSermonsState}
+              giving={giving}
+              onUpdateGiving={updateGivingState}
+              events={events}
+              onUpdateEvents={updateEventsState}
+              announcements={announcements}
+              onUpdateAnnouncements={updateAnnouncementsState}
+              prayerRequests={prayerRequests}
+              onUpdatePrayerRequests={updatePrayerRequestsState}
+              devotionals={devotionals}
+              onUpdateDevotionals={updateDevotionalsState}
+              mediaAssets={mediaAssets}
+              onUpdateMediaAssets={updateMediaAssetsState}
+              onRecordTransaction={handleRecordTransaction}
+              currencySymbol={currencySymbol}
+              currencyCode={currencyCode}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* Tab 14: Analytical Reports Panel */}
+          {!isLoading && activeTab === 'Reports' && (
+            <ReportsView 
+              activeRole={activeRole}
+              members={members}
+              visitors={visitors}
+              giving={giving}
+              attendance={attendance}
+              departments={departments}
+              transactions={transactions}
+              currentMemberId={currentMemberId}
+              currencySymbol={currencySymbol}
+              currencyCode={currencyCode}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* Tab 15: Multi-Church Branch Directory */}
+          {!isLoading && activeTab === 'Churches' && (
+            <ChurchesView 
+              activeRole={activeRole}
+              churches={churches}
+              activeChurchId={activeChurchId}
+              onUpdateChurches={updateChurchesState}
+              onSetActiveChurch={updateActiveChurchIdState}
+            />
+          )}
+
+          {/* Tab 16: Live Streaming virtual sanctuary */}
+          {!isLoading && activeTab === 'Live Stream' && (
+            <LiveStreamView 
+              activeRole={activeRole}
+              liveStreams={liveStreams}
+              onUpdateLiveStreams={updateLiveStreamsState}
+            />
+          )}
+
+          {/* Tab 17: Bookstore e-library */}
+          {!isLoading && activeTab === 'Bookstore' && (
+            <BookstoreView 
+              activeRole={activeRole}
+              books={books}
+              purchasedBookIds={purchasedBookIds}
+              onUpdatePurchasedBooks={updatePurchasedBooksState}
+              onRecordTransaction={handleRecordTransaction}
+              onUpdateBooks={updateBooksState}
+              currencySymbol={currencySymbol}
+              currencyCode={currencyCode}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* Tab 18: Settings and role access */}
+          {!isLoading && activeTab === 'Settings' && (
+            <SettingsView
+              activeRole={activeRole}
+              currencyCode={currencyCode}
+              currencySymbol={currencySymbol}
+              onSetCurrency={handleCurrencyChange}
+              formatCurrency={formatCurrency}
+              onNavigate={(tab) => setActiveTab(tab)}
+            />
+          )}
+
+        </main>
+      </div>
+
+    </div>
+  );
+}

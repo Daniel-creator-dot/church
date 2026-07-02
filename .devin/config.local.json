@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(ls)",
+      "Exec(dir)",
+      "Exec(npm install)",
+      "Exec(npm run)",
+      "Exec(Remove-Item)",
+      "Exec(curl)",
+      "Exec(netstat)",
+      "Exec(taskkill)",
+      "Exec(findstr)",
+      "Exec(cd)",
+      "Exec(Invoke-WebRequest)",
+      "Exec(git status)",
+      "Exec(git remote)",
+      "Exec(git init)",
+      "Exec(git add)"
+    ]
+  }
+}

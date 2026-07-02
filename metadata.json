@@ -1,0 +1,6 @@
+{
+  "name": "Morning Church",
+  "description": "A comprehensive digital platform for church administration, member engagement, online services, giving, and ministry management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
