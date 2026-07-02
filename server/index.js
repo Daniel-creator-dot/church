@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import pool from './db.js';
 import membersRouter from './routes/members.js';
 import eventsRouter from './routes/events.js';
@@ -12,6 +15,23 @@ import visitorsRouter from './routes/visitors.js';
 import authRouter from './routes/auth.js';
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize database schema on startup
+async function initializeDatabase() {
+  try {
+    console.log('Checking database schema...');
+    const schemaPath = path.join(__dirname, 'schema.sql');
+    const schema = fs.readFileSync(schemaPath, 'utf8');
+    await pool.query(schema);
+    console.log('Database schema initialized successfully!');
+  } catch (error) {
+    console.error('Error initializing database schema:', error.message);
+    // Don't exit, as the schema might already exist
+  }
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,6 +69,9 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/visitors', visitorsRouter);
 app.use('/api/auth', authRouter);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+// Initialize database and start server
+initializeDatabase().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 });
