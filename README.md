@@ -1,20 +1,68 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Church Management System
 
-# Run and deploy your AI Studio app
+A comprehensive church management system with member management, donations, events, ministries, and reports.
 
-This contains everything you need to run your app locally.
+## Features
 
-View your app in AI Studio: https://ai.studio/apps/44d63af3-ab91-4296-9656-3e6bd01b0de8
+- Member management and tracking
+- Visitor registration and follow-up
+- Attendance tracking
+- Donation and giving management
+- Event management
+- Ministry/Department organization
+- Live stream integration
+- Bookstore management
+- Prayer requests
+- Announcements
+- Devotional content
+- Financial reports
+- Multi-church support
+- Role-based access control (Super Admin, Pastor, Church Administrator, Finance Officer, Department Leader, Media, Member)
+
+## Tech Stack
+
+- **Frontend:** React with TypeScript, Vite
+- **Backend:** Express.js
+- **Database:** SQLite
+- **Styling:** CSS
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
-
+**Prerequisites:** Node.js
 
 1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+   ```bash
+   npm install
+   ```
+
+2. Set up environment variables:
+   Create a `.env` file based on `.env.example` and configure your settings
+
+3. Initialize the database:
+   ```bash
+   node server/init-db.js
+   ```
+
+4. Start the backend server:
+   ```bash
+   node server/index.js
+   ```
+
+5. In a new terminal, start the frontend:
+   ```bash
+   npm run dev
+   ```
+
+## Default Admin
+
+After initializing the database, you can create an admin user:
+```bash
+node server/add-admin.js
+```
+
+## Project Structure
+
+- `src/` - React frontend components and logic
+- `server/` - Express.js backend API and database
+- `server/routes/` - API route handlers
+- `server/schema.sql` - Database schema
