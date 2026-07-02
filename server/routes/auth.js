@@ -208,4 +208,101 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
+// Initialize database with users (for production setup)
+router.post('/init-users', async (req, res) => {
+  try {
+    const { adminKey } = req.body;
+    
+    // Simple security check - you should use a proper secret in production
+    if (adminKey !== process.env.ADMIN_INIT_KEY && adminKey !== 'init-database-2024') {
+      return res.status(403).json({ error: 'Invalid admin key' });
+    }
+
+    // Run the create-users script logic
+    const bcrypt = await import('bcrypt');
+    
+    const users = [
+      {
+        first_name: 'Admin',
+        last_name: 'User',
+        email: 'admin@church.org',
+        phone: '+233 24 000 0001',
+        address: 'Church Office',
+        role: 'Admin',
+        password: 'admin123'
+      },
+      {
+        first_name: 'Senior',
+        last_name: 'Pastor',
+        email: 'pastor@church.org',
+        phone: '+233 24 000 0002',
+        address: 'Church Parsonage',
+        role: 'Pastor',
+        password: 'pastor123'
+      },
+      {
+        first_name: 'David',
+        last_name: 'Nkansah',
+        email: 'dnkansah29@gmail.com',
+        phone: '+233 24 123 4567',
+        address: 'Accra, Ghana',
+        role: 'Admin',
+        password: 'david123'
+      },
+      {
+        first_name: 'Sarah',
+        last_name: 'Jenkins',
+        email: 'sarah.j@morningchurch.org',
+        phone: '+1 (555) 234-5678',
+        address: 'Northside District',
+        role: 'Member',
+        password: 'sarah123'
+      },
+      {
+        first_name: 'James',
+        last_name: 'Taylor',
+        email: 'james.t@gmail.com',
+        phone: '+1 (555) 876-5432',
+        address: 'Downtown Boulevard',
+        role: 'Member',
+        password: 'james123'
+      }
+    ];
+
+    const results = [];
+    
+    for (const user of users) {
+      const hashedPassword = await bcrypt.hash(user.password, 8);
+      
+      const existingUser = await pool.query(
+        'SELECT id FROM members WHERE email = $1',
+        [user.email]
+      );
+
+      if (existingUser.rows.length > 0) {
+        await pool.query(
+          'UPDATE members SET role = $1, password = $2 WHERE email = $3',
+          [user.role, hashedPassword, user.email]
+        );
+        results.push({ email: user.email, status: 'updated' });
+      } else {
+        await pool.query(
+          'INSERT INTO members (first_name, last_name, email, phone, address, role, password, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+          [user.first_name, user.last_name, user.email, user.phone, user.address, user.role, hashedPassword, 'active']
+        );
+        results.push({ email: user.email, status: 'created' });
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: 'Users initialized successfully',
+      results 
+    });
+  } catch (error) {
+    console.error('Init users error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export default router;
