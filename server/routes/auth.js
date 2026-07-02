@@ -25,30 +25,9 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
 
-    // Check if user has a password (for backward compatibility with old plain text passwords)
+    // Check if user has a password
     if (!user.password) {
-      // For users without hashed passwords, check if the plain text matches (temporary backward compatibility)
-      const plainTextResult = await pool.query(
-        'SELECT id, first_name, last_name, email, role FROM members WHERE email = $1 AND password = $2',
-        [email, password]
-      );
-      
-      if (plainTextResult.rows.length === 0) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-      
-      const plainTextUser = plainTextResult.rows[0];
-      res.json({
-        success: true,
-        user: {
-          id: plainTextUser.id,
-          email: plainTextUser.email,
-          firstName: plainTextUser.first_name,
-          lastName: plainTextUser.last_name,
-          role: plainTextUser.role || 'Member'
-        }
-      });
-      return;
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     // Verify password using bcrypt
@@ -201,21 +180,13 @@ router.post('/reset-password', async (req, res) => {
     }
 
     // Verify admin password
-    if (admin.password) {
-      const isValid = await bcrypt.compare(adminPassword, admin.password);
-      if (!isValid) {
-        return res.status(401).json({ error: 'Invalid admin credentials' });
-      }
-    } else {
-      // Backward compatibility for plain text passwords
-      const plainTextResult = await pool.query(
-        'SELECT id FROM members WHERE email = $1 AND password = $2',
-        [adminEmail, adminPassword]
-      );
-      
-      if (plainTextResult.rows.length === 0) {
-        return res.status(401).json({ error: 'Invalid admin credentials' });
-      }
+    if (!admin.password) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
+    }
+
+    const isValid = await bcrypt.compare(adminPassword, admin.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid admin credentials' });
     }
 
     // Reset user password

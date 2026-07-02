@@ -1,4 +1,5 @@
 import pool from './db.js';
+import bcrypt from 'bcrypt';
 
 async function addAdminUser() {
   try {
@@ -19,6 +20,9 @@ async function addAdminUser() {
       console.log('Role column might already exist:', err.message);
     }
 
+    // Hash the admin password
+    const hashedPassword = await bcrypt.hash('admin123', 8);
+
     // Check if admin user already exists
     const existingAdmin = await pool.query(
       'SELECT id FROM members WHERE email = $1',
@@ -29,14 +33,14 @@ async function addAdminUser() {
       console.log('Admin user already exists, updating password and role...');
       await pool.query(
         'UPDATE members SET password = $1, role = $2 WHERE email = $3',
-        ['admin123', 'Admin', 'admin@church.org']
+        [hashedPassword, 'Admin', 'admin@church.org']
       );
       console.log('Updated existing admin user');
     } else {
       // Insert new admin user
       await pool.query(
         'INSERT INTO members (first_name, last_name, email, password, role, status) VALUES ($1, $2, $3, $4, $5, $6)',
-        ['Admin', 'User', 'admin@church.org', 'admin123', 'Admin', 'active']
+        ['Admin', 'User', 'admin@church.org', hashedPassword, 'Admin', 'active']
       );
       console.log('Created new admin user');
     }
