@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { authApi } from '../api';
-import loginBackground from '../assets/login-background.png';
+import loginBackground from '../../assets/login-background.png';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
