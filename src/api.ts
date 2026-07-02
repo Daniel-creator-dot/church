@@ -271,6 +271,10 @@ export const financeApi = {
 export const checkinApi = {
   getAll: (eventId?: number) => apiCall(eventId ? `/checkin?event_id=${eventId}` : '/checkin'),
   getQr: (eventId: number) => apiCall(`/checkin/qr/${eventId}`),
+  getSundayQr: () => apiCall('/checkin/sunday-qr'),
+  getSundayStats: () => apiCall('/checkin/sunday-stats'),
+  lookupFamily: (phone: string) => apiCall('/checkin/lookup-family', { method: 'POST', body: JSON.stringify({ phone }) }),
+  familyCheckIn: (data: { event_id: number; member_ids: number[] }) => apiCall('/checkin/family', { method: 'POST', body: JSON.stringify(data) }),
   checkIn: (data: any) => apiCall('/checkin', { method: 'POST', body: JSON.stringify(data) }),
   publicCheckIn: (data: any) => apiCall('/checkin/public', { method: 'POST', body: JSON.stringify(data) }),
   checkOut: (id: number) => apiCall(`/checkin/${id}/checkout`, { method: 'PUT' }),

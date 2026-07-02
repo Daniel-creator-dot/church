@@ -113,8 +113,24 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [checkinEventId, setCheckinEventId] = useState('');
   const [checkinMemberId, setCheckinMemberId] = useState('');
   const [qrData, setQrData] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number } | null>(null);
+  const [sundayQr, setSundayQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [kioskMode, setKioskMode] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
+  const [sundayQrLoading, setSundayQrLoading] = useState(false);
+
+  useEffect(() => {
+    setSundayQrLoading(true);
+    checkinApi.getSundayQr()
+      .then(data => setSundayQr({
+        qrDataUrl: data.qrDataUrl,
+        checkInUrl: data.checkInUrl,
+        eventTitle: data.eventTitle,
+        checkedInCount: data.checkedInCount,
+        serviceDate: data.serviceDate,
+      }))
+      .catch(() => setSundayQr(null))
+      .finally(() => setSundayQrLoading(false));
+  }, []);
 
   useEffect(() => {
     if (!checkinEventId) {
@@ -796,6 +812,50 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   if (activeSubView === 'Check-In') {
     const kioskContent = (
       <div className="space-y-6 animate-fade-in">
+        {/* Sunday QR — primary */}
+        <div className="relative overflow-hidden rounded-3xl border border-amber-500/20 bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 p-8 text-white shadow-2xl">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
+            <div className="space-y-4">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-widest">
+                <i className="bi bi-star-fill"></i> Recommended for Every Sunday
+              </div>
+              <h3 className="font-display text-2xl font-bold tracking-tight">Family QR Check-In</h3>
+              <p className="text-slate-400 text-sm leading-relaxed">
+                Print this QR at your entrance. Members scan, enter their phone number, and tick everyone in their household — attendance syncs automatically.
+              </p>
+              {sundayQr && (
+                <div className="flex flex-wrap gap-3 pt-2">
+                  <button type="button" onClick={() => { navigator.clipboard?.writeText(sundayQr.checkInUrl); }} className="text-xs font-bold px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                    <i className="bi bi-clipboard mr-1"></i> Copy Link
+                  </button>
+                  <a href={sundayQr.checkInUrl} target="_blank" rel="noreferrer" className="text-xs font-bold px-4 py-2 rounded-xl bg-amber-500 text-slate-950 hover:bg-amber-400 transition-colors">
+                    <i className="bi bi-phone mr-1"></i> Preview Mobile
+                  </a>
+                  <button type="button" onClick={() => window.print()} className="text-xs font-bold px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/15 transition-colors">
+                    <i className="bi bi-printer mr-1"></i> Print Poster
+                  </button>
+                </div>
+              )}
+              {sundayQr && (
+                <div className="flex items-center gap-4 pt-2">
+                  <div className="text-3xl font-black text-amber-400">{sundayQr.checkedInCount}</div>
+                  <div className="text-xs text-slate-400 uppercase tracking-wider">Checked in today<br/>{sundayQr.serviceDate}</div>
+                </div>
+              )}
+            </div>
+            <div className="flex justify-center">
+              {sundayQrLoading && <p className="text-slate-400 text-sm">Generating QR...</p>}
+              {sundayQr && (
+                <div className="bg-white p-4 rounded-2xl shadow-2xl">
+                  <img src={sundayQr.qrDataUrl} alt="Sunday check-in QR" width={260} height={260} className="rounded-xl" />
+                  <p className="text-center text-[10px] text-slate-500 mt-3 font-medium">Scan every Sunday</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="bg-gradient-to-r from-teal-50 to-white p-6 rounded-2xl border border-teal-100">
           <div className="flex items-center justify-between">
             <div>

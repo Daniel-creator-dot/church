@@ -60,6 +60,7 @@ import BookstoreView from './components/BookstoreView';
 import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
 import PublicCheckInView from './components/PublicCheckInView';
+import SundayCheckInView from './components/SundayCheckInView';
 import PublicFormView from './components/PublicFormView';
 import MemberDirectoryView from './components/MemberDirectoryView';
 import LoginView from './components/LoginView';
@@ -534,10 +535,15 @@ export default function App() {
   const publicView = searchParams?.get('view');
   const isVisitorSignupView = publicView === 'visitor-signup';
   const isPublicCheckInView = publicView === 'checkin';
+  const isSundayCheckInView = publicView === 'sunday-checkin';
   const isPublicFormView = publicView === 'form';
 
   if (isVisitorSignupView) {
     return <VisitorSignupView />;
+  }
+
+  if (isSundayCheckInView) {
+    return <SundayCheckInView />;
   }
 
   if (isPublicCheckInView) {
@@ -556,75 +562,75 @@ export default function App() {
   // Show loading state while fetching data
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-full animate-pulse">
-            <i className="bi bi-church text-white text-2xl"></i>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center mesh-bg">
+        <div className="text-center space-y-6 animate-fade-in">
+          <div className="relative inline-flex">
+            <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-2xl shadow-amber-500/30 animate-pulse">
+              <i className="bi bi-building text-slate-950 text-3xl"></i>
+            </div>
+            <div className="absolute -inset-2 rounded-3xl border border-amber-500/30 animate-ping opacity-20" />
           </div>
-          <p className="text-slate-600 font-medium">Loading Bethel Baptist Church...</p>
+          <div>
+            <p className="font-display text-xl font-bold text-slate-900">Bethel Baptist Church</p>
+            <p className="text-slate-500 text-sm mt-1">Loading your ministry portal...</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F4F7] text-[#1A202C] flex flex-col md:flex-row antialiased font-sans">
+    <div className="app-shell">
       
-      {/* 1. SIDEBAR NAVIGATION */}
-      <aside className={`fixed md:sticky top-0 left-0 z-40 h-screen w-64 bg-gradient-to-b from-white to-slate-50 text-slate-800 border-r border-slate-200/60 transition-all duration-300 ease-out flex flex-col justify-between shadow-lg ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      {/* SIDEBAR */}
+      <aside className={`app-sidebar ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         
-        {/* Sidebar Header */}
-        <div className="p-6 border-b border-slate-200/60 flex items-center justify-between bg-white/50 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#F59E0B] to-[#D97706] rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-amber-500/20">
-              B
+        <div className="p-5 border-b border-white/5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <i className="bi bi-building text-slate-950 text-lg"></i>
+              </div>
+              <div>
+                <span className="block font-display font-bold text-sm text-white leading-tight">Bethel Baptist</span>
+                <span className="block text-[9px] text-amber-400/90 font-bold uppercase tracking-[0.2em]">Ministry Portal</span>
+              </div>
             </div>
-            <div>
-              <span className="block font-sans font-extrabold text-sm uppercase tracking-tight leading-tight text-slate-900">Bethel Baptist Church</span>
-              <span className="block font-mono text-[9px] text-[#F59E0B] font-extrabold uppercase tracking-wider">Management Portal</span>
-            </div>
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden text-slate-400 hover:text-white p-2">
+              <i className="bi bi-x-lg"></i>
+            </button>
           </div>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="md:hidden text-slate-500 hover:text-slate-800 hover:bg-slate-100 p-2 rounded-lg transition-colors"
-          >
-            <i className="bi bi-x-lg text-lg"></i>
-          </button>
         </div>
 
-        {/* Sidebar Navigation Items */}
-        <div className="flex-1 overflow-y-auto px-0 py-6 space-y-6">
-          {/* Groupings of Navigation links */}
+        <div className="flex-1 overflow-y-auto py-5 space-y-6">
           {['Core', 'Administration', 'Church Life', 'ChMeetings', 'Analytics'].map(group => {
             const items = sidebarNavItems.filter(item => item.viewGroup === group && isTabAllowedForRole(item.name, activeRole));
             if (items.length === 0) return null;
             return (
               <div key={group} className="space-y-1">
-                <span className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-widest px-6 pb-2">
+                <span className="block text-[9px] font-bold text-slate-500 uppercase tracking-[0.2em] px-5 pb-2">
                   {group}
                 </span>
-                <nav className="space-y-1">
+                <nav className="space-y-0.5 px-3">
                   {items.map(item => {
-                    const iconClass = item.icon;
                     const isActive = activeTab === item.name;
                     return (
                       <button
                         key={item.name}
-                        onClick={() => {
-                          setActiveTab(item.name);
-                          setIsSidebarOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-3 px-6 py-3 text-xs font-medium transition-all duration-200 group relative ${
-                          isActive 
-                            ? 'bg-gradient-to-r from-amber-50 to-white text-slate-900 font-semibold border-l-4 border-[#F59E0B] shadow-sm' 
-                            : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100/50 border-l-4 border-transparent'
+                        onClick={() => { setActiveTab(item.name); setIsSidebarOpen(false); }}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 text-xs font-medium rounded-xl transition-all duration-200 group ${
+                          isActive
+                            ? 'bg-gradient-to-r from-amber-500/20 to-amber-600/10 text-amber-300 border border-amber-500/20 shadow-inner'
+                            : 'text-slate-400 hover:text-white hover:bg-white/5 border border-transparent'
                         }`}
                       >
-                        <i className={`bi ${iconClass} text-sm shrink-0 transition-all duration-200 ${isActive ? 'text-[#F59E0B] scale-110' : 'text-slate-400 group-hover:scale-110 group-hover:text-slate-600'}`}></i>
-                        <span className="relative">{item.name}</span>
-                        {isActive && (
-                          <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-[#F59E0B] animate-pulse"></div>
-                        )}
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all ${
+                          isActive ? 'bg-amber-500/20 text-amber-400' : 'bg-white/5 text-slate-500 group-hover:bg-white/10 group-hover:text-slate-300'
+                        }`}>
+                          <i className={`bi ${item.icon} text-sm`}></i>
+                        </div>
+                        <span className={isActive ? 'font-semibold' : ''}>{item.name}</span>
+                        {isActive && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />}
                       </button>
                     );
                   })}
@@ -634,79 +640,59 @@ export default function App() {
           })}
         </div>
 
-        {/* Sidebar Footer (Clock, active user email) */}
-        <div className="p-4 border-t border-slate-200/60 bg-gradient-to-r from-slate-50 to-white space-y-3">
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-            <span className="flex items-center gap-1.5 font-semibold text-emerald-600">
-              <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${apiStatus === 'connected' ? 'bg-emerald-500' : apiStatus === 'degraded' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
-              {apiStatus === 'connected' ? 'Live Synced' : apiStatus === 'degraded' ? 'Partial Sync' : 'Offline'}
+        <div className="p-4 border-t border-white/5 space-y-3">
+          <div className="flex items-center justify-between text-[10px] text-slate-500">
+            <span className="flex items-center gap-1.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${apiStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : apiStatus === 'degraded' ? 'bg-amber-400' : 'bg-red-400'}`} />
+              {apiStatus === 'connected' ? 'Live' : apiStatus === 'degraded' ? 'Partial' : 'Offline'}
             </span>
-            <span className="font-bold flex items-center gap-1 text-slate-700">
-              <i className="bi bi-clock text-[#F59E0B]"></i> {currentTime}
-            </span>
+            <span className="text-slate-400"><i className="bi bi-clock text-amber-500/80 mr-1"></i>{currentTime}</span>
           </div>
-          <div className="flex items-center gap-2 bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-100 to-amber-50 text-[#F59E0B] rounded-lg flex items-center justify-center text-xs font-bold font-mono border border-amber-200">
-              MC
+          <div className="flex items-center gap-2 bg-white/5 rounded-xl p-2.5 border border-white/5">
+            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-400/30 to-amber-600/20 flex items-center justify-center text-amber-400 text-xs font-bold border border-amber-500/20">
+              {currentUserEmail?.[0]?.toUpperCase() || 'U'}
             </div>
-            <div className="overflow-hidden flex-1">
-              <span className="block text-[10px] font-bold text-slate-800 truncate">{currentUserEmail}</span>
-              <span className="block text-[9px] text-slate-400">{activeRole}</span>
+            <div className="flex-1 min-w-0">
+              <span className="block text-[10px] font-semibold text-white truncate">{currentUserEmail}</span>
+              <span className="block text-[9px] text-slate-500">{activeRole}</span>
             </div>
-            <button
-              onClick={handleLogout}
-              className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-lg transition-colors"
-              title="Logout"
-            >
-              <i className="bi bi-box-arrow-right text-sm"></i>
+            <button onClick={handleLogout} className="text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-white/5 transition-colors" title="Logout">
+              <i className="bi bi-box-arrow-right"></i>
             </button>
           </div>
-          <div className="bg-gradient-to-r from-slate-100 to-slate-50 border border-slate-200 p-2 text-center text-[10px] text-slate-500 font-mono rounded-lg">
-            <span className="text-[#F59E0B] font-bold">V.2.6.0</span> Stable
-          </div>
+          <div className="text-center text-[9px] text-slate-600 font-mono">v2.7.0</div>
         </div>
       </aside>
 
-      {/* 2. MAIN WORKSPACE CONTAINER */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+      <div className="app-main mesh-bg">
         
-        {/* Top Sticky Header */}
-        <header className="sticky top-0 z-30 bg-gradient-to-r from-white to-slate-50 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between shadow-sm backdrop-blur-sm">
+        <header className="sticky top-0 z-30 backdrop-blur-xl bg-white/70 border-b border-slate-200/60 px-6 py-4 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setIsSidebarOpen(true)}
-              className="md:hidden text-slate-600 hover:text-slate-900 hover:bg-slate-100 p-2 rounded-xl border border-slate-200 transition-all"
-            >
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-slate-600 hover:bg-slate-100 p-2.5 rounded-xl border border-slate-200">
               <i className="bi bi-list text-lg"></i>
             </button>
             <div>
-              <h2 className="text-lg font-bold text-slate-800 leading-tight">
-                {activeTab}
-              </h2>
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">
-                Bethel Baptist Church Governance & Ministry Hub
-              </span>
+              <h2 className="font-display text-xl font-bold text-slate-900 leading-tight">{activeTab}</h2>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Bethel Baptist Church</span>
             </div>
           </div>
 
-          {/* Role Based Access Switcher Component - PROACTIVE SELECTION */}
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setCommandPaletteOpen(true)}
-              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs text-slate-500 hover:border-amber-300 hover:text-slate-700 transition-colors"
+              className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200/80 bg-white/80 text-xs text-slate-500 hover:border-amber-300 hover:shadow-md transition-all"
             >
               <i className="bi bi-search"></i>
-              <span>Quick search</span>
-              <kbd className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded">Ctrl K</kbd>
+              <span>Search</span>
+              <kbd className="font-mono text-[10px] bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">⌘K</kbd>
             </button>
-            <div className="bg-gradient-to-r from-slate-100 to-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-700 flex items-center gap-1 shadow-sm">
-              <i className="bi bi-crown-fill text-sm text-amber-500"></i> {activeRole}
+            <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-slate-900 to-slate-800 text-[10px] font-bold text-amber-400 flex items-center gap-1.5 shadow-lg">
+              <i className="bi bi-shield-check"></i> {activeRole}
             </div>
           </div>
         </header>
 
-        {/* Core dynamic Content Panels based on Active Navigation Tab */}
         <main className="p-6 md:p-8 flex-1 max-w-7xl w-full mx-auto pb-16">
           
           {/* Loading State */}
