@@ -17,6 +17,11 @@ CREATE TABLE IF NOT EXISTS members (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Ensure columns exist for backward compatibility
+ALTER TABLE members ADD COLUMN IF NOT EXISTS role VARCHAR(50) DEFAULT 'Member';
+ALTER TABLE members ADD COLUMN IF NOT EXISTS password VARCHAR(255);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS date_of_birth DATE;
+
 -- Events table
 CREATE TABLE IF NOT EXISTS events (
   id SERIAL PRIMARY KEY,
