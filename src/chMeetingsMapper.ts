@@ -8,6 +8,8 @@ export function dbHouseholdToFrontend(db: any): Household {
     id: `HH-${db.id}`,
     name: db.name,
     address: db.address || '',
+    contactPhone: db.contact_phone || '',
+    familyCode: db.family_code || '',
     primaryMemberId: db.primary_member_id ? `M-${db.primary_member_id}` : undefined,
     primaryMemberName: db.primary_member_name || '',
     memberCount: parseInt(db.member_count) || 0,

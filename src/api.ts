@@ -212,6 +212,12 @@ export const householdsApi = {
   create: (data: any) => apiCall('/households', { method: 'POST', body: JSON.stringify(data) }),
   update: (id: number, data: any) => apiCall(`/households/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   getMembers: (id: number) => apiCall(`/households/${id}/members`),
+  getUnassignedMembers: () => apiCall('/households/unassigned-members'),
+  addMember: (householdId: number, memberId: number) =>
+    apiCall(`/households/${householdId}/members`, { method: 'POST', body: JSON.stringify({ member_id: memberId }) }),
+  removeMember: (householdId: number, memberId: number) =>
+    apiCall(`/households/${householdId}/members/${memberId}`, { method: 'DELETE' }),
+  regenerateCode: (id: number) => apiCall(`/households/${id}/regenerate-code`, { method: 'POST' }),
 };
 
 export const fundsApi = {
@@ -273,7 +279,8 @@ export const checkinApi = {
   getQr: (eventId: number) => apiCall(`/checkin/qr/${eventId}`),
   getSundayQr: () => apiCall('/checkin/sunday-qr'),
   getSundayStats: () => apiCall('/checkin/sunday-stats'),
-  lookupFamily: (phone: string) => apiCall('/checkin/lookup-family', { method: 'POST', body: JSON.stringify({ phone }) }),
+  lookupFamily: (data: { phone?: string; family_code?: string }) =>
+    apiCall('/checkin/lookup-family', { method: 'POST', body: JSON.stringify(data) }),
   familyCheckIn: (data: { event_id: number; member_ids: number[] }) => apiCall('/checkin/family', { method: 'POST', body: JSON.stringify(data) }),
   checkIn: (data: any) => apiCall('/checkin', { method: 'POST', body: JSON.stringify(data) }),
   publicCheckIn: (data: any) => apiCall('/checkin/public', { method: 'POST', body: JSON.stringify(data) }),

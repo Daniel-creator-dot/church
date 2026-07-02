@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { checkinApi } from '../api';
 
 type Step = 'phone' | 'family' | 'success';
+type LookupTab = 'phone' | 'code';
 
 interface FamilyMember {
   id: number;
@@ -27,7 +28,9 @@ const AVATAR_COLORS = [
 
 export default function SundayCheckInView() {
   const [step, setStep] = useState<Step>('phone');
+  const [lookupTab, setLookupTab] = useState<LookupTab>('phone');
   const [phone, setPhone] = useState('');
+  const [familyCode, setFamilyCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [householdName, setHouseholdName] = useState('');
@@ -51,32 +54,59 @@ export default function SundayCheckInView() {
     return () => clearInterval(interval);
   }, []);
 
+  const applyLookupResult = (data: {
+    householdName: string;
+    members: FamilyMember[];
+    eventId: number;
+    serviceDate: string;
+    checkedInToday: number;
+    confirmRequired?: boolean;
+    surnameHint?: string | null;
+    lookupMode?: 'registered' | 'suggested' | 'solo';
+  }) => {
+    setHouseholdName(data.householdName);
+    setMembers(data.members);
+    setEventId(data.eventId);
+    setServiceDate(data.serviceDate);
+    setLiveCount(data.checkedInToday);
+    setConfirmRequired(Boolean(data.confirmRequired));
+    setSurnameHint(data.surnameHint || null);
+    setLookupMode(data.lookupMode || 'solo');
+
+    const toSelect = new Set<number>(
+      data.members
+        .filter(m => {
+          if (m.alreadyCheckedIn) return false;
+          if (data.confirmRequired) return m.isYou;
+          return true;
+        })
+        .map(m => m.id)
+    );
+    setSelected(toSelect);
+    setStep('family');
+  };
+
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
     try {
-      const data = await checkinApi.lookupFamily(phone);
-      setHouseholdName(data.householdName);
-      setMembers(data.members);
-      setEventId(data.eventId);
-      setServiceDate(data.serviceDate);
-      setLiveCount(data.checkedInToday);
-      setConfirmRequired(Boolean(data.confirmRequired));
-      setSurnameHint(data.surnameHint || null);
-      setLookupMode(data.lookupMode || 'solo');
+      const data = await checkinApi.lookupFamily({ phone });
+      applyLookupResult(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Lookup failed');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      const toSelect = new Set<number>(
-        data.members
-          .filter((m: FamilyMember) => {
-            if (m.alreadyCheckedIn) return false;
-            if (data.confirmRequired) return m.isYou;
-            return true;
-          })
-          .map((m: FamilyMember) => m.id)
-      );
-      setSelected(toSelect);
-      setStep('family');
+  const handleCodeSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    try {
+      const data = await checkinApi.lookupFamily({ family_code: familyCode.trim().toUpperCase() });
+      applyLookupResult(data);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Lookup failed');
     } finally {
@@ -114,7 +144,9 @@ export default function SundayCheckInView() {
 
   const reset = () => {
     setStep('phone');
+    setLookupTab('phone');
     setPhone('');
+    setFamilyCode('');
     setMembers([]);
     setSelected(new Set());
     setError('');
@@ -148,59 +180,117 @@ export default function SundayCheckInView() {
           </div>
         </div>
 
-        {/* Step: Phone */}
+        {/* Step: Phone or family code */}
         {step === 'phone' && (
           <div className="flex-1 flex flex-col animate-slide-up">
             <div className="glass-dark rounded-3xl p-6 border border-white/10 shadow-2xl">
+              <div className="flex rounded-2xl bg-white/5 p-1 mb-6 border border-white/10">
+                <button
+                  type="button"
+                  onClick={() => { setLookupTab('phone'); setError(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${lookupTab === 'phone' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <i className="bi bi-telephone mr-1"></i> Phone
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setLookupTab('code'); setError(''); }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${lookupTab === 'code' ? 'bg-amber-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'}`}
+                >
+                  <i className="bi bi-key mr-1"></i> Family Code
+                </button>
+              </div>
+
               <div className="text-center mb-6">
                 <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-br from-amber-500/20 to-amber-600/10 flex items-center justify-center border border-amber-500/20">
-                  <i className="bi bi-phone text-3xl text-amber-400"></i>
+                  <i className={`bi ${lookupTab === 'phone' ? 'bi-phone' : 'bi-key'} text-3xl text-amber-400`}></i>
                 </div>
-                <h2 className="text-xl font-bold text-white">Enter your phone number</h2>
+                <h2 className="text-xl font-bold text-white">
+                  {lookupTab === 'phone' ? 'Enter your phone number' : 'Enter your family code'}
+                </h2>
                 <p className="text-slate-400 text-sm mt-2 leading-relaxed">
-                  Enter your number — we'll show your family. If you're not registered yet, we'll suggest people with the same surname for you to confirm.
+                  {lookupTab === 'phone'
+                    ? 'We\'ll show your registered household, or suggest same-surname members for you to confirm.'
+                    : 'Use the code on your family check-in card (e.g. BBC-A3K9).'}
                 </p>
               </div>
 
-              <form onSubmit={handlePhoneSubmit} className="space-y-4">
-                <div className="relative">
-                  <i className="bi bi-telephone absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/70"></i>
-                  <input
-                    type="tel"
-                    inputMode="tel"
-                    autoComplete="tel"
-                    autoFocus
-                    required
-                    value={phone}
-                    onChange={e => setPhone(e.target.value)}
-                    placeholder="024 123 4567"
-                    className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-lg font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
-                  />
-                </div>
-
-                {error && (
-                  <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
-                    <i className="bi bi-exclamation-circle shrink-0 mt-0.5"></i>
-                    {error}
+              {lookupTab === 'phone' ? (
+                <form onSubmit={handlePhoneSubmit} className="space-y-4">
+                  <div className="relative">
+                    <i className="bi bi-telephone absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/70"></i>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      autoFocus
+                      required
+                      value={phone}
+                      onChange={e => setPhone(e.target.value)}
+                      placeholder="024 123 4567"
+                      className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-lg font-medium placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all"
+                    />
                   </div>
-                )}
 
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-base shadow-lg shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 transition-all active:scale-[0.98]"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2"><i className="bi bi-arrow-repeat animate-spin"></i> Looking up...</span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">Find My Family <i className="bi bi-arrow-right"></i></span>
+                  {error && (
+                    <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+                      <i className="bi bi-exclamation-circle shrink-0 mt-0.5"></i>
+                      {error}
+                    </div>
                   )}
-                </button>
-              </form>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-base shadow-lg shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2"><i className="bi bi-arrow-repeat animate-spin"></i> Looking up...</span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">Find My Family <i className="bi bi-arrow-right"></i></span>
+                    )}
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleCodeSubmit} className="space-y-4">
+                  <div className="relative">
+                    <i className="bi bi-key absolute left-4 top-1/2 -translate-y-1/2 text-amber-500/70"></i>
+                    <input
+                      type="text"
+                      autoComplete="off"
+                      autoFocus
+                      required
+                      value={familyCode}
+                      onChange={e => setFamilyCode(e.target.value.toUpperCase())}
+                      placeholder="BBC-A3K9"
+                      className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white text-lg font-mono font-bold tracking-widest placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500/50 transition-all uppercase"
+                    />
+                  </div>
+
+                  {error && (
+                    <div className="flex items-start gap-2 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-sm">
+                      <i className="bi bi-exclamation-circle shrink-0 mt-0.5"></i>
+                      {error}
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 font-bold text-base shadow-lg shadow-amber-500/25 hover:from-amber-300 hover:to-amber-400 disabled:opacity-50 transition-all active:scale-[0.98]"
+                  >
+                    {loading ? (
+                      <span className="flex items-center justify-center gap-2"><i className="bi bi-arrow-repeat animate-spin"></i> Looking up...</span>
+                    ) : (
+                      <span className="flex items-center justify-center gap-2">Find Household <i className="bi bi-arrow-right"></i></span>
+                    )}
+                  </button>
+                </form>
+              )}
             </div>
 
             <p className="text-center text-slate-500 text-xs mt-6">
-              First time? Visit the welcome desk — we'll add your family to the directory.
+              First time? Visit the welcome desk — we'll register your family and give you a code.
             </p>
           </div>
         )}

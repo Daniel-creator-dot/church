@@ -249,6 +249,8 @@ export interface Household {
   id: string;
   name: string;
   address: string;
+  contactPhone?: string;
+  familyCode?: string;
   primaryMemberId?: string;
   primaryMemberName?: string;
   memberCount: number;

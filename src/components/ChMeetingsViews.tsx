@@ -5,11 +5,11 @@ import {
   CustomForm, CheckInRecord, FinanceTransaction, MemberOption, Announcement, Devotional
 } from '../types';
 import {
-  householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi,
+  fundsApi, pledgesApi, volunteersApi, worshipApi,
   communicationsApi, formsApi, financeApi, checkinApi
 } from '../api';
 import {
-  dbHouseholdToFrontend, dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
+  dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
   dbVolunteerRoleToFrontend, dbVolunteerAssignmentToFrontend, dbSongToFrontend,
   dbWorshipPlanToFrontend, dbCommunicationToFrontend, dbFormToFrontend,
   dbCheckInToFrontend, dbFinanceToFrontend, getCalendarDays, getEventsForDate,
@@ -17,6 +17,7 @@ import {
 } from '../chMeetingsMapper';
 import { getTodayString } from '../utils/date';
 import { printSundayBulletin } from '../utils/bulletin';
+import HouseholdManagerView from './HouseholdManagerView';
 
 type ChMeetingsSubView =
   | 'Calendar' | 'Volunteers' | 'Worship Planning' | 'Pledges & Funds'
@@ -149,9 +150,6 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       .catch(() => setQrData(null))
       .finally(() => setQrLoading(false));
   }, [checkinEventId]);
-
-  // Household form state
-  const [hhName, setHhName] = useState('');
 
   // Form builder state
   const [formTitle, setFormTitle] = useState('');
@@ -338,15 +336,6 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
         checked_in_by: userEmail,
       });
       props.onUpdateCheckIns([dbCheckInToFrontend(saved), ...props.checkIns]);
-    } catch (e) { console.error(e); }
-  };
-
-  const handleCreateHousehold = async () => {
-    if (!hhName) return;
-    try {
-      const saved = await householdsApi.create({ name: hhName });
-      props.onUpdateHouseholds([dbHouseholdToFrontend(saved), ...props.households]);
-      setHhName('');
     } catch (e) { console.error(e); }
   };
 
@@ -822,7 +811,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
               </div>
               <h3 className="font-display text-2xl font-bold tracking-tight">Family QR Check-In</h3>
               <p className="text-slate-400 text-sm leading-relaxed">
-                Print this QR at your entrance. Members scan, enter their phone number, confirm who's in their family, and check in — attendance syncs automatically.
+                Print this QR at your entrance. Families check in by phone (with surname confirmation) or family code. Registered households get one-tap check-in.
               </p>
               {sundayQr && (
                 <div className="flex flex-wrap gap-3 pt-2">
@@ -967,31 +956,12 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   // ---- HOUSEHOLDS ----
   if (activeSubView === 'Households') {
     return (
-      <div className="space-y-6 animate-fade-in">
-        <div className="bg-gradient-to-r from-orange-50 to-white p-6 rounded-2xl border border-orange-100">
-          <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-house-heart text-orange-500 mr-2"></i>Households</h3>
-          <p className="text-sm text-slate-500 mt-1">Group families together — ChMeetings household management.</p>
-        </div>
-        {isAdmin && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3 max-w-md">
-            <input value={hhName} onChange={e => setHhName(e.target.value)} placeholder="Household name (e.g. Nkansah Family)" className="input-elegant w-full" />
-            <button onClick={handleCreateHousehold} className="btn-primary w-full">Create Household</button>
-          </div>
-        )}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {props.households.map(h => (
-            <div key={h.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center text-orange-600"><i className="bi bi-house"></i></div>
-                <div>
-                  <div className="font-bold">{h.name}</div>
-                  <div className="text-xs text-slate-500">{h.memberCount} members · {h.primaryMemberName || 'No primary'}</div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+      <HouseholdManagerView
+        households={props.households}
+        onUpdateHouseholds={props.onUpdateHouseholds}
+        memberOptions={props.memberOptions}
+        isAdmin={isAdmin}
+      />
     );
   }
 
