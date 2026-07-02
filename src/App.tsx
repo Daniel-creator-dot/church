@@ -549,39 +549,8 @@ export default function App() {
 
           {/* Role Based Access Switcher Component - PROACTIVE SELECTION */}
           <div className="flex items-center gap-3">
-            {/* Active Church Selector */}
-            <div className="hidden lg:flex items-center gap-2 bg-gradient-to-r from-amber-50 to-amber-100/50 p-1.5 rounded-xl border border-amber-200 shadow-sm">
-              <span className="text-[10px] font-extrabold text-[#F59E0B] uppercase tracking-wider px-2 flex items-center gap-1">
-                <i className="bi bi-building text-sm"></i> Campus Branch:
-              </span>
-              <select 
-                id="header-church-select"
-                className="bg-white border-none rounded-lg text-[11px] font-bold text-slate-700 focus:ring-2 focus:ring-[#F59E0B]/20 px-3 py-1.5 cursor-pointer shadow-sm"
-                value={activeChurchId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  setActiveChurchId(id);
-                  const ch = churches.find(c => c.id === id);
-                  alert(`Switched workspace perspective to branch: ${ch?.name}`);
-                }}
-              >
-                {churches.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </div>
-
-            <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-slate-100 to-slate-50 p-1.5 rounded-xl border border-slate-200 shadow-sm">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-2 flex items-center gap-1">
-                <i className="bi bi-shield-check text-sm text-[#F59E0B]"></i> Role:
-              </span>
-              <span className="bg-white border-none rounded-lg text-[11px] font-bold text-slate-700 px-3 py-1.5 shadow-sm">
-                {activeRole}
-              </span>
-            </div>
-
             {/* Mobile simplified badge */}
-            <div className="sm:hidden bg-gradient-to-r from-slate-100 to-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-700 flex items-center gap-1 shadow-sm">
+            <div className="bg-gradient-to-r from-slate-100 to-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-[10px] font-black text-slate-700 flex items-center gap-1 shadow-sm">
               <i className="bi bi-crown-fill text-sm text-amber-500"></i> {activeRole}
             </div>
           </div>
