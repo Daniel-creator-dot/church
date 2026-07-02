@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS members (
   date_of_birth DATE,
   membership_date DATE DEFAULT CURRENT_DATE,
   status VARCHAR(50) DEFAULT 'active',
+  role VARCHAR(50) DEFAULT 'Member',
+  password VARCHAR(255),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
