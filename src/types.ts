@@ -240,3 +240,141 @@ export interface User {
   role: Role;
 }
 
+// --- ChMeetings-inspired types ---
+
+export interface Household {
+  id: string;
+  name: string;
+  address: string;
+  primaryMemberId?: string;
+  primaryMemberName?: string;
+  memberCount: number;
+}
+
+export interface Fund {
+  id: string;
+  name: string;
+  description: string;
+  goalAmount: number;
+  raisedAmount: number;
+  isActive: boolean;
+}
+
+export interface PledgeCampaign {
+  id: string;
+  name: string;
+  description: string;
+  goalAmount: number;
+  startDate: string;
+  endDate: string;
+  fundId?: string;
+  fundName?: string;
+  totalPledged: number;
+  totalFulfilled: number;
+}
+
+export interface Pledge {
+  id: string;
+  campaignId: string;
+  campaignName?: string;
+  memberId?: string;
+  memberName?: string;
+  pledgorName: string;
+  pledgedAmount: number;
+  fulfilledAmount: number;
+  frequency: string;
+}
+
+export interface VolunteerRole {
+  id: string;
+  name: string;
+  description: string;
+  ministryId?: string;
+  ministryName?: string;
+}
+
+export interface VolunteerAssignment {
+  id: string;
+  eventId?: string;
+  eventTitle?: string;
+  memberId: string;
+  memberName: string;
+  roleId?: string;
+  roleName: string;
+  assignmentDate: string;
+  status: 'Scheduled' | 'Confirmed' | 'Completed' | 'Cancelled';
+  notes: string;
+}
+
+export interface Song {
+  id: string;
+  title: string;
+  artist: string;
+  key: string;
+  theme: string;
+  lyrics: string;
+}
+
+export interface WorshipPlanItem {
+  id?: string;
+  itemType: 'song' | 'prayer' | 'sermon' | 'announcement' | 'offering' | 'other';
+  title: string;
+  songId?: string;
+  songTitle?: string;
+  durationMinutes?: number;
+  assignedTo: string;
+  sortOrder: number;
+  notes: string;
+}
+
+export interface WorshipPlan {
+  id: string;
+  title: string;
+  serviceDate: string;
+  serviceType: string;
+  notes: string;
+  items?: WorshipPlanItem[];
+}
+
+export interface Communication {
+  id: string;
+  subject: string;
+  body: string;
+  channel: 'email' | 'sms' | 'push';
+  targetGroup: string;
+  ministryName?: string;
+  status: string;
+  sentAt: string;
+  sentBy: string;
+}
+
+export interface CustomForm {
+  id: string;
+  title: string;
+  description: string;
+  fields: { label: string; type: string; required?: boolean }[];
+  isPublic: boolean;
+  isAnonymous: boolean;
+}
+
+export interface FormSubmission {
+  id: string;
+  formId: string;
+  submitterName: string;
+  submitterEmail: string;
+  responses: Record<string, string>;
+  submittedAt: string;
+}
+
+export interface CheckInRecord {
+  id: string;
+  eventId: string;
+  eventTitle: string;
+  memberId: string;
+  memberName: string;
+  email: string;
+  checkinTime: string;
+  checkoutTime?: string;
+  familyTag?: string;
+}
+

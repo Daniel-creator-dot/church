@@ -14,6 +14,18 @@ A comprehensive church management platform for member administration, giving, ev
 - **Multi-currency** — USD, GHS, EUR, NGN
 - **Session persistence** — Stay logged in across page refreshes
 
+### ChMeetings-inspired modules
+
+- **Calendar** — Monthly event calendar with day view
+- **Volunteers** — Role definitions and volunteer scheduling/rota
+- **Worship Planning** — Song library and order-of-service plans
+- **Pledges & Funds** — Designated funds and pledge campaigns with progress tracking
+- **Communications** — Bulk email, SMS, and push notifications to groups
+- **Check-In** — Event kiosk check-in for members
+- **Households** — Family grouping for members
+- **Forms** — Custom embeddable forms for data collection
+- **Accounting** — Income/expense ledger with fund tracking
+
 ## Tech Stack
 
 - **Frontend:** React 19 + TypeScript + Vite + Tailwind CSS

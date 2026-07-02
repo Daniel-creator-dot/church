@@ -198,3 +198,170 @@ CREATE INDEX IF NOT EXISTS idx_sermons_date ON sermons(sermon_date);
 CREATE INDEX IF NOT EXISTS idx_announcements_date ON announcements(announcement_date);
 CREATE INDEX IF NOT EXISTS idx_prayer_date ON prayer_requests(request_date);
 CREATE INDEX IF NOT EXISTS idx_devotionals_date ON devotionals(devotional_date);
+
+-- ========== ChMeetings-inspired modules ==========
+
+-- Households (family grouping)
+CREATE TABLE IF NOT EXISTS households (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  address TEXT,
+  primary_member_id INTEGER REFERENCES members(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE members ADD COLUMN IF NOT EXISTS household_id INTEGER REFERENCES households(id);
+
+-- Designated giving funds
+CREATE TABLE IF NOT EXISTS funds (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  goal_amount DECIMAL(12,2),
+  raised_amount DECIMAL(12,2) DEFAULT 0,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS fund_id INTEGER REFERENCES funds(id);
+
+-- Pledge campaigns
+CREATE TABLE IF NOT EXISTS pledge_campaigns (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  goal_amount DECIMAL(12,2),
+  start_date DATE,
+  end_date DATE,
+  fund_id INTEGER REFERENCES funds(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS pledges (
+  id SERIAL PRIMARY KEY,
+  campaign_id INTEGER REFERENCES pledge_campaigns(id) ON DELETE CASCADE,
+  member_id INTEGER REFERENCES members(id),
+  pledgor_name VARCHAR(255),
+  pledged_amount DECIMAL(12,2) NOT NULL,
+  fulfilled_amount DECIMAL(12,2) DEFAULT 0,
+  frequency VARCHAR(50) DEFAULT 'one-time',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Volunteer scheduling
+CREATE TABLE IF NOT EXISTS volunteer_roles (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  ministry_id INTEGER REFERENCES ministries(id),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS volunteer_assignments (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER REFERENCES events(id) ON DELETE SET NULL,
+  member_id INTEGER REFERENCES members(id),
+  role_id INTEGER REFERENCES volunteer_roles(id),
+  role_name VARCHAR(255),
+  assignment_date DATE NOT NULL,
+  status VARCHAR(50) DEFAULT 'Scheduled',
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Worship planning & song library
+CREATE TABLE IF NOT EXISTS songs (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  artist VARCHAR(255),
+  song_key VARCHAR(20),
+  theme VARCHAR(255),
+  lyrics TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS worship_plans (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  service_date DATE NOT NULL,
+  service_type VARCHAR(50),
+  notes TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS worship_plan_items (
+  id SERIAL PRIMARY KEY,
+  plan_id INTEGER REFERENCES worship_plans(id) ON DELETE CASCADE,
+  item_type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  song_id INTEGER REFERENCES songs(id),
+  duration_minutes INTEGER,
+  assigned_to VARCHAR(255),
+  sort_order INTEGER DEFAULT 0,
+  notes TEXT
+);
+
+-- Communications (email/SMS/push to groups)
+CREATE TABLE IF NOT EXISTS communications (
+  id SERIAL PRIMARY KEY,
+  subject VARCHAR(255) NOT NULL,
+  body TEXT,
+  channel VARCHAR(50) DEFAULT 'email',
+  target_group VARCHAR(100) DEFAULT 'all',
+  ministry_id INTEGER REFERENCES ministries(id),
+  status VARCHAR(50) DEFAULT 'Sent',
+  sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  sent_by VARCHAR(255)
+);
+
+-- Custom forms
+CREATE TABLE IF NOT EXISTS custom_forms (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  fields JSONB DEFAULT '[]',
+  is_public BOOLEAN DEFAULT false,
+  is_anonymous BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS form_submissions (
+  id SERIAL PRIMARY KEY,
+  form_id INTEGER REFERENCES custom_forms(id) ON DELETE CASCADE,
+  submitter_name VARCHAR(255),
+  submitter_email VARCHAR(255),
+  responses JSONB DEFAULT '{}',
+  submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Finance accounting ledger
+CREATE TABLE IF NOT EXISTS finance_transactions (
+  id SERIAL PRIMARY KEY,
+  transaction_date DATE DEFAULT CURRENT_DATE,
+  type VARCHAR(20) NOT NULL,
+  category VARCHAR(100),
+  fund_id INTEGER REFERENCES funds(id),
+  amount DECIMAL(12,2) NOT NULL,
+  description TEXT,
+  approved_by VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Event check-in (QR/kiosk)
+CREATE TABLE IF NOT EXISTS event_checkins (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+  member_id INTEGER REFERENCES members(id),
+  checkin_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  checkout_time TIMESTAMP,
+  checked_in_by VARCHAR(255),
+  family_tag VARCHAR(50),
+  UNIQUE(event_id, member_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_households_name ON households(name);
+CREATE INDEX IF NOT EXISTS idx_funds_active ON funds(is_active);
+CREATE INDEX IF NOT EXISTS idx_pledges_campaign ON pledges(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_volunteer_assignments_date ON volunteer_assignments(assignment_date);
+CREATE INDEX IF NOT EXISTS idx_worship_plans_date ON worship_plans(service_date);
+CREATE INDEX IF NOT EXISTS idx_communications_sent ON communications(sent_at);
+CREATE INDEX IF NOT EXISTS idx_finance_transactions_date ON finance_transactions(transaction_date);
+CREATE INDEX IF NOT EXISTS idx_event_checkins_event ON event_checkins(event_id);

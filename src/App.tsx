@@ -20,10 +20,13 @@ import {
   LiveStream,
   MemberOption,
   LeaderOption,
-  User
+  User,
+  Household, Fund, PledgeCampaign, Pledge,
+  VolunteerRole, VolunteerAssignment, Song, WorshipPlan,
+  Communication, CustomForm, CheckInRecord
 } from './types';
 
-import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi } from './api';
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi } from './api';
 import { 
   dbMemberToFrontend, 
   frontendMemberToDb,
@@ -56,6 +59,15 @@ import BookstoreView from './components/BookstoreView';
 import SettingsView from './components/SettingsView';
 import VisitorSignupView from './components/VisitorSignupView';
 import LoginView from './components/LoginView';
+import ChMeetingsViews from './components/ChMeetingsViews';
+import {
+  dbHouseholdToFrontend, dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
+  dbVolunteerRoleToFrontend, dbVolunteerAssignmentToFrontend, dbSongToFrontend,
+  dbWorshipPlanToFrontend, dbCommunicationToFrontend, dbFormToFrontend,
+  dbCheckInToFrontend, dbFinanceToFrontend
+} from './chMeetingsMapper';
+
+const CHMEETINGS_TABS = ['Calendar', 'Volunteers', 'Worship Planning', 'Pledges & Funds', 'Communications', 'Check-In', 'Households', 'Forms', 'Accounting'];
 
 // Map database roles to frontend roles
 const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
@@ -73,51 +85,24 @@ const mapDatabaseRoleToFrontendRole = (dbRole: string): Role => {
 };
 
 const isTabAllowedForRole = (tabName: string, role: Role): boolean => {
-  if (role === 'Super Admin') return ['Dashboard', 'Churches', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'].includes(tabName);
-  
-  if (role === 'Admin') return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings'].includes(tabName);
-  
+  const baseSuperAdmin = ['Dashboard', 'Churches', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Media', 'Reports', 'Settings', ...CHMEETINGS_TABS];
+  if (role === 'Super Admin') return baseSuperAdmin.includes(tabName);
+  if (role === 'Admin') return baseSuperAdmin.filter(t => t !== 'Churches').includes(tabName);
   if (tabName === 'Churches') return false;
-  
+
   switch (role) {
     case 'Pastor':
-      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings'].includes(tabName);
-
+      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Church Administrator':
-      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings'].includes(tabName);
-
+      return ['Dashboard', 'Members', 'Visitors', 'Attendance', 'Departments', 'Follow Up', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Reports', 'Settings', 'Calendar', 'Volunteers', 'Worship Planning', 'Communications', 'Check-In', 'Households', 'Forms', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Finance Officer':
-      return ['Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings'].includes(tabName);
-
+      return ['Dashboard', 'Giving', 'Bookstore', 'Reports', 'Announcements', 'Settings', 'Pledges & Funds', 'Accounting'].includes(tabName);
     case 'Department Leader':
-      return [
-        'Dashboard',
-        'Attendance',
-        'Departments',
-        'Follow Up',
-        'Sermons',
-        'Events',
-        'Prayer Requests',
-        'Announcements',
-        'Devotional'
-      ].includes(tabName);
-
+      return ['Dashboard', 'Attendance', 'Departments', 'Follow Up', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Calendar', 'Volunteers', 'Check-In'].includes(tabName);
     case 'Media':
-      return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional'].includes(tabName);
-
+      return ['Dashboard', 'Media', 'Sermons', 'Events', 'Announcements', 'Devotional', 'Worship Planning', 'Calendar'].includes(tabName);
     case 'Member':
-      return [
-        'Dashboard',
-        'Giving',
-        'Live Stream',
-        'Sermons',
-        'Events',
-        'Prayer Requests',
-        'Announcements',
-        'Devotional',
-        'Bookstore'
-      ].includes(tabName);
-
+      return ['Dashboard', 'Giving', 'Live Stream', 'Sermons', 'Events', 'Prayer Requests', 'Announcements', 'Devotional', 'Bookstore', 'Calendar', 'Pledges & Funds', 'Forms'].includes(tabName);
     default:
       return false;
   }
@@ -150,6 +135,19 @@ export default function App() {
   const [books, setBooks] = useState<Book[]>([]);
   const [purchasedBookIds, setPurchasedBookIds] = useState<string[]>([]);
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
+
+  // ChMeetings-inspired state
+  const [households, setHouseholds] = useState<Household[]>([]);
+  const [funds, setFunds] = useState<Fund[]>([]);
+  const [campaigns, setCampaigns] = useState<PledgeCampaign[]>([]);
+  const [pledges, setPledges] = useState<Pledge[]>([]);
+  const [volunteerRoles, setVolunteerRoles] = useState<VolunteerRole[]>([]);
+  const [volunteerAssignments, setVolunteerAssignments] = useState<VolunteerAssignment[]>([]);
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [worshipPlans, setWorshipPlans] = useState<WorshipPlan[]>([]);
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [customForms, setCustomForms] = useState<CustomForm[]>([]);
+  const [checkIns, setCheckIns] = useState<CheckInRecord[]>([]);
 
   // Active Role State - will be set by login
   const [activeRole, setActiveRole] = useState<Role>('Member');
@@ -255,6 +253,42 @@ export default function App() {
 
       const leaderOptionsData = await track('leader options', () => followupsApi.getLeaders(), []);
       setLeaderOptions(leaderOptionsData.map(dbLeaderToOption));
+
+      const householdsData = await track('households', () => householdsApi.getAll(), []);
+      setHouseholds(householdsData.map(dbHouseholdToFrontend));
+
+      const fundsData = await track('funds', () => fundsApi.getAll(), []);
+      setFunds(fundsData.map(dbFundToFrontend));
+
+      const campaignsData = await track('campaigns', () => pledgesApi.getCampaigns(), []);
+      setCampaigns(campaignsData.map(dbCampaignToFrontend));
+
+      const pledgesData = await track('pledges', () => pledgesApi.getAll(), []);
+      setPledges(pledgesData.map(dbPledgeToFrontend));
+
+      const volRolesData = await track('volunteer roles', () => volunteersApi.getRoles(), []);
+      setVolunteerRoles(volRolesData.map(dbVolunteerRoleToFrontend));
+
+      const volAssignData = await track('volunteer assignments', () => volunteersApi.getAssignments(), []);
+      setVolunteerAssignments(volAssignData.map(dbVolunteerAssignmentToFrontend));
+
+      const songsData = await track('songs', () => worshipApi.getSongs(), []);
+      setSongs(songsData.map(dbSongToFrontend));
+
+      const plansData = await track('worship plans', () => worshipApi.getPlans(), []);
+      setWorshipPlans(plansData.map(dbWorshipPlanToFrontend));
+
+      const commsData = await track('communications', () => communicationsApi.getAll(), []);
+      setCommunications(commsData.map(dbCommunicationToFrontend));
+
+      const formsData = await track('forms', () => formsApi.getAll(), []);
+      setCustomForms(formsData.map(dbFormToFrontend));
+
+      const checkinData = await track('checkins', () => checkinApi.getAll(), []);
+      setCheckIns(checkinData.map(dbCheckInToFrontend));
+
+      const financeData = await track('finance', () => financeApi.getAll(), []);
+      setTransactions(financeData.map(dbFinanceToFrontend));
 
       if (failures > 3) setApiStatus('offline');
       setIsLoading(false);
@@ -365,18 +399,20 @@ export default function App() {
     setLiveStreams(newStreams);
   };
 
-  const handleRecordTransaction = (transaction: { type: 'Income' | 'Expense'; category: string; amount: number; description: string }) => {
-    const newTransaction: FinanceTransaction = {
-      id: `FT-${Math.floor(100 + Math.random() * 900)}`,
-      date: new Date().toISOString().split('T')[0],
-      type: transaction.type,
-      category: transaction.category,
-      amount: transaction.amount,
-      description: transaction.description,
-      approvedBy: activeRole
-    };
-    const updated = [newTransaction, ...transactions];
-    setTransactions(updated);
+  const handleRecordTransaction = async (transaction: { type: 'Income' | 'Expense'; category: string; amount: number; description: string }) => {
+    try {
+      const saved = await financeApi.create({
+        transaction_date: getTodayString(),
+        type: transaction.type,
+        category: transaction.category,
+        amount: transaction.amount,
+        description: transaction.description,
+        approved_by: activeRole,
+      });
+      setTransactions([dbFinanceToFrontend(saved), ...transactions]);
+    } catch (error) {
+      console.error('Failed to record transaction', error);
+    }
   };
 
   // Nav categories structure
@@ -401,6 +437,17 @@ export default function App() {
     { name: 'Devotional', icon: 'bi-book', viewGroup: 'Church Life' },
     { name: 'Bookstore', icon: 'bi-book-half', viewGroup: 'Church Life' },
     { name: 'Media', icon: 'bi-image', viewGroup: 'Church Life' },
+
+    // ChMeetings-inspired modules
+    { name: 'Calendar', icon: 'bi-calendar3', viewGroup: 'ChMeetings' },
+    { name: 'Volunteers', icon: 'bi-person-workspace', viewGroup: 'ChMeetings' },
+    { name: 'Worship Planning', icon: 'bi-music-note-beamed', viewGroup: 'ChMeetings' },
+    { name: 'Pledges & Funds', icon: 'bi-piggy-bank', viewGroup: 'ChMeetings' },
+    { name: 'Communications', icon: 'bi-envelope', viewGroup: 'ChMeetings' },
+    { name: 'Check-In', icon: 'bi-qr-code', viewGroup: 'ChMeetings' },
+    { name: 'Households', icon: 'bi-house-heart', viewGroup: 'ChMeetings' },
+    { name: 'Forms', icon: 'bi-ui-checks', viewGroup: 'ChMeetings' },
+    { name: 'Accounting', icon: 'bi-calculator', viewGroup: 'ChMeetings' },
 
     // Analytical Reporting group
     { name: 'Reports', icon: 'bi-file-earmark-spreadsheet', viewGroup: 'Analytics' },
@@ -490,7 +537,7 @@ export default function App() {
         {/* Sidebar Navigation Items */}
         <div className="flex-1 overflow-y-auto px-0 py-6 space-y-6">
           {/* Groupings of Navigation links */}
-          {['Core', 'Administration', 'Church Life', 'Analytics'].map(group => {
+          {['Core', 'Administration', 'Church Life', 'ChMeetings', 'Analytics'].map(group => {
             const items = sidebarNavItems.filter(item => item.viewGroup === group && isTabAllowedForRole(item.name, activeRole));
             if (items.length === 0) return null;
             return (
@@ -723,6 +770,43 @@ export default function App() {
               onUpdateBooks={updateBooksState}
               currencySymbol={currencySymbol}
               currencyCode={currencyCode}
+              formatCurrency={formatCurrency}
+            />
+          )}
+
+          {/* ChMeetings-inspired modules */}
+          {!isLoading && CHMEETINGS_TABS.includes(activeTab) && (
+            <ChMeetingsViews
+              activeSubView={activeTab as any}
+              activeRole={activeRole}
+              userEmail={currentUserEmail}
+              members={members}
+              events={events}
+              memberOptions={memberOptions}
+              households={households}
+              onUpdateHouseholds={setHouseholds}
+              funds={funds}
+              onUpdateFunds={setFunds}
+              campaigns={campaigns}
+              onUpdateCampaigns={setCampaigns}
+              pledges={pledges}
+              onUpdatePledges={setPledges}
+              volunteerRoles={volunteerRoles}
+              onUpdateVolunteerRoles={setVolunteerRoles}
+              volunteerAssignments={volunteerAssignments}
+              onUpdateVolunteerAssignments={setVolunteerAssignments}
+              songs={songs}
+              onUpdateSongs={setSongs}
+              worshipPlans={worshipPlans}
+              onUpdateWorshipPlans={setWorshipPlans}
+              communications={communications}
+              onUpdateCommunications={setCommunications}
+              customForms={customForms}
+              onUpdateCustomForms={setCustomForms}
+              checkIns={checkIns}
+              onUpdateCheckIns={setCheckIns}
+              transactions={transactions}
+              onUpdateTransactions={setTransactions}
               formatCurrency={formatCurrency}
             />
           )}

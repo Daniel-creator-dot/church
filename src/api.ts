@@ -203,6 +203,69 @@ export const mediaApi = {
   delete: (id: number) => apiCall(`/media/${id}`, { method: 'DELETE' }),
 };
 
+// --- ChMeetings-inspired APIs ---
+
+export const householdsApi = {
+  getAll: () => apiCall('/households'),
+  create: (data: any) => apiCall('/households', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/households/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  getMembers: (id: number) => apiCall(`/households/${id}/members`),
+};
+
+export const fundsApi = {
+  getAll: () => apiCall('/funds'),
+  create: (data: any) => apiCall('/funds', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/funds/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+};
+
+export const pledgesApi = {
+  getCampaigns: () => apiCall('/pledges/campaigns'),
+  createCampaign: (data: any) => apiCall('/pledges/campaigns', { method: 'POST', body: JSON.stringify(data) }),
+  getAll: (campaignId?: number) => apiCall(campaignId ? `/pledges?campaign_id=${campaignId}` : '/pledges'),
+  create: (data: any) => apiCall('/pledges', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id: number, data: any) => apiCall(`/pledges/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+};
+
+export const volunteersApi = {
+  getRoles: () => apiCall('/volunteers/roles'),
+  createRole: (data: any) => apiCall('/volunteers/roles', { method: 'POST', body: JSON.stringify(data) }),
+  getAssignments: () => apiCall('/volunteers/assignments'),
+  createAssignment: (data: any) => apiCall('/volunteers/assignments', { method: 'POST', body: JSON.stringify(data) }),
+  updateAssignment: (id: number, data: any) => apiCall(`/volunteers/assignments/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+};
+
+export const worshipApi = {
+  getSongs: () => apiCall('/worship/songs'),
+  createSong: (data: any) => apiCall('/worship/songs', { method: 'POST', body: JSON.stringify(data) }),
+  getPlans: () => apiCall('/worship/plans'),
+  getPlan: (id: number) => apiCall(`/worship/plans/${id}`),
+  createPlan: (data: any) => apiCall('/worship/plans', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+export const communicationsApi = {
+  getAll: () => apiCall('/communications'),
+  send: (data: any) => apiCall('/communications', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+export const formsApi = {
+  getAll: () => apiCall('/forms'),
+  create: (data: any) => apiCall('/forms', { method: 'POST', body: JSON.stringify(data) }),
+  getSubmissions: (id: number) => apiCall(`/forms/${id}/submissions`),
+  submit: (id: number, data: any) => apiCall(`/forms/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+};
+
+export const financeApi = {
+  getAll: () => apiCall('/finance'),
+  getSummary: () => apiCall('/finance/summary'),
+  create: (data: any) => apiCall('/finance', { method: 'POST', body: JSON.stringify(data) }),
+};
+
+export const checkinApi = {
+  getAll: (eventId?: number) => apiCall(eventId ? `/checkin?event_id=${eventId}` : '/checkin'),
+  checkIn: (data: any) => apiCall('/checkin', { method: 'POST', body: JSON.stringify(data) }),
+  checkOut: (id: number) => apiCall(`/checkin/${id}/checkout`, { method: 'PUT' }),
+};
+
 // Auth API
 export const authApi = {
   login: (email: string, password: string) => apiCall('/auth/login', {

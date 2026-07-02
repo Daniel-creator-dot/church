@@ -19,6 +19,15 @@ import announcementsRouter from './routes/announcements.js';
 import prayerRouter from './routes/prayer.js';
 import devotionalsRouter from './routes/devotionals.js';
 import mediaRouter from './routes/media.js';
+import householdsRouter from './routes/households.js';
+import fundsRouter from './routes/funds.js';
+import pledgesRouter from './routes/pledges.js';
+import volunteersRouter from './routes/volunteers.js';
+import worshipRouter from './routes/worship.js';
+import communicationsRouter from './routes/communications.js';
+import formsRouter from './routes/forms.js';
+import financeRouter from './routes/finance.js';
+import checkinRouter from './routes/checkin.js';
 
 dotenv.config();
 
@@ -80,6 +89,15 @@ app.use('/api/announcements', announcementsRouter);
 app.use('/api/prayer', prayerRouter);
 app.use('/api/devotionals', devotionalsRouter);
 app.use('/api/media', mediaRouter);
+app.use('/api/households', householdsRouter);
+app.use('/api/funds', fundsRouter);
+app.use('/api/pledges', pledgesRouter);
+app.use('/api/volunteers', volunteersRouter);
+app.use('/api/worship', worshipRouter);
+app.use('/api/communications', communicationsRouter);
+app.use('/api/forms', formsRouter);
+app.use('/api/finance', financeRouter);
+app.use('/api/checkin', checkinRouter);
 
 // Serve frontend build in production when enabled
 const distPath = path.join(__dirname, '..', 'dist');
