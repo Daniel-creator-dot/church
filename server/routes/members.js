@@ -36,8 +36,8 @@ router.post('/', async (req, res) => {
     // Use default password if none provided
     const defaultPassword = password || 'zxcv123$$';
     
-    // Hash password
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    // Hash password with lower cost for better compatibility
+    const hashedPassword = await bcrypt.hash(defaultPassword, 8);
     
     const result = await pool.query(
       'INSERT INTO members (first_name, last_name, email, phone, address, date_of_birth, status, role, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
@@ -58,7 +58,7 @@ router.put('/:id', async (req, res) => {
     // Hash password if provided
     let hashedPassword = null;
     if (password) {
-      hashedPassword = await bcrypt.hash(password, 10);
+      hashedPassword = await bcrypt.hash(password, 8);
     }
     
     // Build dynamic query based on provided fields
@@ -154,8 +154,8 @@ router.put('/:id/password', async (req, res) => {
       }
     }
     
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    // Hash new password with lower cost for better compatibility
+    const hashedPassword = await bcrypt.hash(newPassword, 8);
     
     // Update password
     await pool.query(

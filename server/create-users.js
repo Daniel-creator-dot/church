@@ -100,8 +100,8 @@ async function createUsers() {
     ];
 
     for (const user of users) {
-      // Hash password
-      const hashedPassword = await bcrypt.hash(user.password, 10);
+      // Hash password with lower cost for better compatibility
+      const hashedPassword = await bcrypt.hash(user.password, 8);
       
       // Check if user already exists
       const existingUser = await pool.query(

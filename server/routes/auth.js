@@ -52,7 +52,14 @@ router.post('/login', async (req, res) => {
     }
 
     // Verify password using bcrypt
-    const isValid = await bcrypt.compare(password, user.password);
+    let isValid;
+    try {
+      isValid = await bcrypt.compare(password, user.password);
+    } catch (bcryptError) {
+      console.error('Bcrypt comparison error:', bcryptError);
+      return res.status(500).json({ error: 'Password verification failed' });
+    }
+    
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
@@ -69,7 +76,7 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });
 
@@ -95,8 +102,8 @@ router.post('/register', async (req, res) => {
     // Use provided password or default
     const userPassword = password || 'zxcv123$$';
     
-    // Hash password
-    const hashedPassword = await bcrypt.hash(userPassword, 10);
+    // Hash password with lower cost for better compatibility
+    const hashedPassword = await bcrypt.hash(userPassword, 8);
 
     // Create new user with default Member role
     const result = await pool.query(
@@ -149,7 +156,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Reset password to default
     const defaultPassword = 'zxcv123$$';
-    const hashedPassword = await bcrypt.hash(defaultPassword, 10);
+    const hashedPassword = await bcrypt.hash(defaultPassword, 8);
 
     await pool.query(
       'UPDATE members SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
@@ -213,7 +220,7 @@ router.post('/reset-password', async (req, res) => {
 
     // Reset user password
     const resetPassword = newPassword || 'zxcv123$$';
-    const hashedPassword = await bcrypt.hash(resetPassword, 10);
+    const hashedPassword = await bcrypt.hash(resetPassword, 8);
 
     await pool.query(
       'UPDATE members SET password = $1, updated_at = CURRENT_TIMESTAMP WHERE email = $2',
