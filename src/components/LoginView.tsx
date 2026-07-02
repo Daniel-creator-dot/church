@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { authApi } from '../api';
+import loginBackground from '../assets/login-background.png';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -100,8 +101,19 @@ export default function LoginView({ onLogin }: LoginViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6">
+    <div 
+      className="min-h-screen flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `url(${loginBackground})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
+      {/* White fade overlay */}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/95 via-white/85 to-white/75"></div>
+      
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md space-y-6 relative z-10">
         {/* Header */}
         <div className="text-center space-y-2">
           <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500 rounded-full mb-4">
