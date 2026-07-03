@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 
 import { 
   Role, 
@@ -27,7 +27,7 @@ import {
   DashboardInsights,
 } from './types';
 
-import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi, insightsApi, booksApi, liveStreamsApi } from './api';
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi, insightsApi, booksApi, liveStreamsApi, bootstrapApi } from './api';
 import { 
   dbMemberToFrontend, 
   frontendMemberToDb,
@@ -50,26 +50,29 @@ import {
 import { getTodayString } from './utils/date';
 import { saveSession, loadSession, clearSession } from './utils/session';
 
+import { mapBootstrapToState } from './utils/bootstrap';
+
 import DashboardView from './components/DashboardView';
-import ManagementViews from './components/ManagementViews';
-import ChurchLifeViews from './components/ChurchLifeViews';
-import ReportsView from './components/ReportsView';
-import ChurchesView from './components/ChurchesView';
-import LiveStreamView from './components/LiveStreamView';
-import BookstoreView from './components/BookstoreView';
-import SettingsView from './components/SettingsView';
+import LoginView from './components/LoginView';
+import CommandPalette from './components/CommandPalette';
 import VisitorSignupView from './components/VisitorSignupView';
 import PublicCheckInView from './components/PublicCheckInView';
 import SundayCheckInView from './components/SundayCheckInView';
 import WelcomeDeskKioskView from './components/WelcomeDeskKioskView';
 import PublicFormView from './components/PublicFormView';
-import MemberDirectoryView from './components/MemberDirectoryView';
-import LoginView from './components/LoginView';
-import ChMeetingsViews from './components/ChMeetingsViews';
-import CommandPalette from './components/CommandPalette';
-import SmallGroupsView from './components/SmallGroupsView';
-import PrayerWallView from './components/PrayerWallView';
-import DiscipleshipView from './components/DiscipleshipView';
+
+const ManagementViews = lazy(() => import('./components/ManagementViews'));
+const ChurchLifeViews = lazy(() => import('./components/ChurchLifeViews'));
+const ReportsView = lazy(() => import('./components/ReportsView'));
+const ChurchesView = lazy(() => import('./components/ChurchesView'));
+const LiveStreamView = lazy(() => import('./components/LiveStreamView'));
+const BookstoreView = lazy(() => import('./components/BookstoreView'));
+const SettingsView = lazy(() => import('./components/SettingsView'));
+const MemberDirectoryView = lazy(() => import('./components/MemberDirectoryView'));
+const ChMeetingsViews = lazy(() => import('./components/ChMeetingsViews'));
+const SmallGroupsView = lazy(() => import('./components/SmallGroupsView'));
+const PrayerWallView = lazy(() => import('./components/PrayerWallView'));
+const DiscipleshipView = lazy(() => import('./components/DiscipleshipView'));
 import {
   dbHouseholdToFrontend, dbFundToFrontend, dbCampaignToFrontend, dbPledgeToFrontend,
   dbVolunteerRoleToFrontend, dbVolunteerAssignmentToFrontend, dbSongToFrontend,
@@ -666,7 +669,7 @@ export default function App() {
               <i className="bi bi-box-arrow-right"></i>
             </button>
           </div>
-          <div className="text-center text-[9px] text-slate-600 font-mono">v2.9.0</div>
+          <div className="text-center text-[9px] text-slate-600 font-mono">v2.9.1</div>
         </div>
       </aside>
 

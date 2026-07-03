@@ -97,7 +97,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [reminderResult, setReminderResult] = useState<{ count: number; channel?: string; sent?: number; reminders: { memberName: string; email?: string; phone?: string; mailto?: string; assignmentDate: string; roleName: string; status?: string }[] } | null>(null);
   const [reminderLoading, setReminderLoading] = useState(false);
   const [smsReminderLoading, setSmsReminderLoading] = useState(false);
-  const [messagingConfig, setMessagingConfig] = useState<{ provider: string; ready: boolean; message: string } | null>(null);
+  const [messagingConfig, setMessagingConfig] = useState<{ provider: string; ready: boolean; message: string; balanceUnits?: number | null; sender?: string | null } | null>(null);
   const [smsOutbox, setSmsOutbox] = useState<{ id: number; recipient: string; body: string; status: string; created_at: string }[]>([]);
 
   // Pledge form state
@@ -335,7 +335,9 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
         const outbox = await messagingApi.getOutbox(20);
         setSmsOutbox(outbox);
         if (saved.bulkResult) {
-          alert(`SMS queued for ${saved.bulkResult.sent} of ${saved.bulkResult.count} recipients (stub mode until Twilio is configured).`);
+          const sent = saved.bulkResult.sent;
+          const total = saved.bulkResult.count;
+          alert(`SMS sent to ${sent} of ${total} recipients.`);
         }
       }
     } catch (e) {
@@ -490,9 +492,12 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
             )}
           </div>
           {messagingConfig && (
-            <p className="text-xs text-amber-700 mt-3 flex items-center gap-2">
+            <p className="text-xs text-amber-700 mt-3 flex items-center gap-2 flex-wrap">
               <i className="bi bi-info-circle"></i>
-              SMS provider: <span className="font-mono font-bold">{messagingConfig.provider}</span> — {messagingConfig.message}
+              SMS: <span className="font-mono font-bold">{messagingConfig.provider}</span>
+              {messagingConfig.sender && <span>· sender <span className="font-bold">{messagingConfig.sender}</span></span>}
+              {messagingConfig.balanceUnits != null && <span>· {messagingConfig.balanceUnits} units left</span>}
+              <span>— {messagingConfig.message}</span>
             </p>
           )}
         </div>
@@ -507,7 +512,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
             </div>
             <p className="text-xs text-emerald-700">
               {reminderResult.channel === 'sms'
-                ? 'Messages saved to SMS outbox. They will send automatically when Twilio API is configured.'
+                ? 'SMS sent via Intek. Check SMS Outbox for delivery status.'
                 : 'Reminders saved to Communications. Click a volunteer to open your email client:'}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -826,13 +831,16 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       <div className="space-y-6 animate-fade-in">
         <div className="bg-gradient-to-r from-blue-50 to-white p-6 rounded-2xl border border-blue-100">
           <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-envelope-fill text-blue-500 mr-2"></i>Communications</h3>
-          <p className="text-sm text-slate-500 mt-1">Send bulk email or SMS. SMS messages queue in outbox until Twilio API is connected.</p>
+          <p className="text-sm text-slate-500 mt-1">Send bulk email or SMS via Intek. Volunteer SMS reminders send automatically when configured.</p>
         </div>
         {messagingConfig && (
           <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-sm text-violet-800 flex items-start gap-2">
             <i className="bi bi-chat-dots-fill shrink-0 mt-0.5"></i>
             <div>
               <span className="font-bold">SMS: {messagingConfig.provider}</span>
+              {messagingConfig.balanceUnits != null && (
+                <span className="text-violet-600"> · {messagingConfig.balanceUnits} units</span>
+              )}
               <span className="text-violet-600"> — {messagingConfig.message}</span>
             </div>
           </div>
@@ -851,9 +859,9 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
             <input value={msgSubject} onChange={e => setMsgSubject(e.target.value)} placeholder="Subject" className="input-elegant w-full" />
             <textarea value={msgBody} onChange={e => setMsgBody(e.target.value)} placeholder={msgChannel === 'sms' ? 'SMS message (keep under 160 chars)...' : 'Message body...'} rows={4} className="input-elegant w-full" />
             {msgChannel === 'sms' && (
-              <p className="text-xs text-violet-600">SMS will be queued for all members with phone numbers. Connect Twilio later to send automatically.</p>
+              <p className="text-xs text-violet-600">SMS sends immediately via Intek when API key is configured on the server.</p>
             )}
-            <button onClick={handleSendMessage} className="btn-primary w-full"><i className="bi bi-send mr-2"></i>{msgChannel === 'sms' ? 'Queue SMS' : 'Send Message'}</button>
+            <button onClick={handleSendMessage} className="btn-primary w-full"><i className="bi bi-send mr-2"></i>{msgChannel === 'sms' ? 'Send SMS' : 'Send Message'}</button>
           </div>
         )}
         {smsOutbox.length > 0 && (
@@ -861,7 +869,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
             <h4 className="font-bold mb-1 flex items-center gap-2">
               <i className="bi bi-inbox text-violet-500"></i> SMS Outbox
             </h4>
-            <p className="text-xs text-slate-500 mb-4">Recent queued messages — ready for Twilio API</p>
+            <p className="text-xs text-slate-500 mb-4">Recent SMS messages and delivery status</p>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {smsOutbox.map(row => (
                 <div key={row.id} className="p-3 bg-slate-50 rounded-xl text-sm flex justify-between gap-3">

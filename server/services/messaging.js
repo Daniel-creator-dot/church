@@ -1,31 +1,97 @@
 import pool from '../db.js';
 
-function normalizePhone(phone) {
+function formatSmsRecipient(phone) {
   const digits = (phone || '').replace(/\D/g, '');
-  if (digits.length <= 10) return digits;
-  return digits.slice(-10);
+  if (!digits) return '';
+
+  if (digits.startsWith('233') && digits.length >= 12) {
+    return `0${digits.slice(3)}`;
+  }
+  if (digits.length === 9) return `0${digits}`;
+  if (digits.length === 10 && digits.startsWith('0')) return digits;
+  if (digits.length === 10) return `0${digits}`;
+  if (digits.length > 10) return `0${digits.slice(-9)}`;
+  return digits;
 }
 
 export function getMessagingConfig() {
-  const provider = (process.env.MESSAGING_PROVIDER || 'stub').toLowerCase();
+  const intekConfigured = Boolean(process.env.INTEK_API_KEY);
   const twilioConfigured = Boolean(
     process.env.TWILIO_ACCOUNT_SID &&
     process.env.TWILIO_AUTH_TOKEN &&
     process.env.TWILIO_FROM_NUMBER
   );
+
+  let provider = (process.env.MESSAGING_PROVIDER || '').toLowerCase();
+  if (!provider || provider === 'auto') {
+    provider = intekConfigured ? 'intek' : twilioConfigured ? 'twilio' : 'stub';
+  }
+
   return {
     provider,
     smsEnabled: process.env.SMS_ENABLED !== 'false',
+    intekConfigured,
     twilioConfigured,
-    ready: provider === 'stub' || (provider === 'twilio' && twilioConfigured),
-    fromNumber: process.env.TWILIO_FROM_NUMBER || null,
+    ready:
+      provider === 'stub' ||
+      (provider === 'intek' && intekConfigured) ||
+      (provider === 'twilio' && twilioConfigured),
+    sender: process.env.INTEK_SENDER || process.env.TWILIO_FROM_NUMBER || null,
+    apiUrl: process.env.INTEK_API_URL || 'https://www.inteksms.top/api/v1',
   };
 }
 
-/**
- * Twilio integration hook — wire this when credentials are available.
- * Set MESSAGING_PROVIDER=twilio and TWILIO_* env vars on Render.
- */
+export async function getIntekBalance() {
+  const apiKey = process.env.INTEK_API_KEY;
+  const apiUrl = (process.env.INTEK_API_URL || 'https://www.inteksms.top/api/v1').replace(/\/$/, '');
+  if (!apiKey) return null;
+
+  const response = await fetch(`${apiUrl}/balance`, {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      Accept: 'application/json',
+    },
+  });
+  const data = await response.json();
+  if (!response.ok || !data.ok) return null;
+  return data.data?.balance_units ?? null;
+}
+
+async function sendViaIntek({ to, body }) {
+  const apiKey = process.env.INTEK_API_KEY;
+  const apiUrl = (process.env.INTEK_API_URL || 'https://www.inteksms.top/api/v1').replace(/\/$/, '');
+  const sender = process.env.INTEK_SENDER || 'mychurch';
+
+  if (!apiKey) throw new Error('INTEK_API_KEY not configured');
+
+  const recipient = formatSmsRecipient(to);
+  if (recipient.length < 10) throw new Error('Invalid phone number for SMS');
+
+  const response = await fetch(`${apiUrl}/messages/send`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({
+      message: body,
+      recipients: [recipient],
+      sender,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok || !data.ok) {
+    throw new Error(data.error || data.message || `Intek SMS error ${response.status}`);
+  }
+
+  return {
+    providerMessageId: String(data.data?.campaign_id || ''),
+    status: data.data?.status === 'sent' ? 'sent' : 'queued',
+  };
+}
+
 async function sendViaTwilio({ to, body }) {
   const { TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER } = process.env;
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN || !TWILIO_FROM_NUMBER) {
@@ -62,6 +128,15 @@ async function deliverSms(outboxRow) {
   const config = getMessagingConfig();
   const recipient = outboxRow.recipient;
 
+  if (config.provider === 'intek' && config.intekConfigured) {
+    const result = await sendViaIntek({ to: recipient, body: outboxRow.body });
+    await pool.query(
+      `UPDATE message_outbox SET status = $1, provider_message_id = $2, sent_at = CURRENT_TIMESTAMP, error_message = NULL WHERE id = $3`,
+      [result.status, result.providerMessageId, outboxRow.id]
+    );
+    return { ...outboxRow, status: result.status, provider_message_id: result.providerMessageId };
+  }
+
   if (config.provider === 'twilio' && config.twilioConfigured) {
     const result = await sendViaTwilio({ to: recipient, body: outboxRow.body });
     await pool.query(
@@ -91,8 +166,8 @@ export async function sendSms({
     throw new Error('SMS messaging is disabled. Set SMS_ENABLED=true to enable.');
   }
 
-  const phone = normalizePhone(to);
-  if (phone.length < 7) {
+  const phone = formatSmsRecipient(to);
+  if (phone.length < 10) {
     throw new Error('Invalid phone number');
   }
 
@@ -125,13 +200,29 @@ export async function sendBulkSms({ recipients, body, subject, targetGroup, sent
         referenceId: recipient.id,
         sentBy,
       });
-      results.push({ memberId: recipient.id, memberName: recipient.name, phone: recipient.phone, status: row.status, outboxId: row.id });
+      results.push({
+        memberId: recipient.id,
+        memberName: recipient.name,
+        phone: recipient.phone,
+        status: row.status,
+        outboxId: row.id,
+      });
     } catch (error) {
-      results.push({ memberId: recipient.id, memberName: recipient.name, phone: recipient.phone, status: 'failed', error: error.message });
+      results.push({
+        memberId: recipient.id,
+        memberName: recipient.name,
+        phone: recipient.phone,
+        status: 'failed',
+        error: error.message,
+      });
     }
   }
 
-  return { count: results.length, sent: results.filter(r => r.status === 'sent' || r.status === 'stub').length, results };
+  return {
+    count: results.length,
+    sent: results.filter(r => r.status === 'sent' || r.status === 'queued' || r.status === 'stub').length,
+    results,
+  };
 }
 
 export async function getSmsRecipients(targetGroup) {
