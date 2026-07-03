@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyFollowUpCreated } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -83,6 +84,7 @@ router.post('/', async (req, res) => {
       'INSERT INTO follow_ups (target_person_id, target_person_name, category, assigned_to_id, assigned_to_name, notes) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
       [target_person_id, target_person_name, category, assigned_to_id, assigned_to_name, notes]
     );
+    notifyFollowUpCreated(result.rows[0].id);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

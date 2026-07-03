@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { getMessagingConfig, getIntekBalance } from '../services/messaging.js';
+import { SMS_TRIGGERS } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -28,6 +29,7 @@ router.get('/config', async (req, res) => {
     res.json({
       ...config,
       balanceUnits,
+      triggers: SMS_TRIGGERS,
       message: configMessage(config),
     });
   } catch (error) {

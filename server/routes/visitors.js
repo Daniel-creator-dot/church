@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyVisitorWelcome } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -50,6 +51,8 @@ router.post('/', async (req, res) => {
         follow_up_notes || '',
       ]
     );
+
+    notifyVisitorWelcome({ name, phone });
 
     res.status(201).json(result.rows[0]);
   } catch (error) {

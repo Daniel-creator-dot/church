@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyGroupJoin } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -75,11 +76,18 @@ router.get('/:id/members', async (req, res) => {
 router.post('/:id/members', async (req, res) => {
   try {
     const { member_id, role } = req.body;
+    const existing = await pool.query(
+      'SELECT id FROM group_members WHERE group_id = $1 AND member_id = $2',
+      [req.params.id, member_id]
+    );
     const result = await pool.query(
       `INSERT INTO group_members (group_id, member_id, role) VALUES ($1, $2, $3)
        ON CONFLICT (group_id, member_id) DO UPDATE SET role = $3 RETURNING *`,
       [req.params.id, member_id, role || 'Member']
     );
+    if (!existing.rows.length) {
+      notifyGroupJoin(parseInt(req.params.id, 10), member_id);
+    }
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

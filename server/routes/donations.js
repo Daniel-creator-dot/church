@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyDonationReceived } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -66,6 +67,7 @@ router.post('/', async (req, res) => {
       'INSERT INTO donations (member_id, amount, donation_type, notes) VALUES ($1, $2, $3, $4) RETURNING *',
       [member_id, amount, donation_type, notes]
     );
+    notifyDonationReceived(result.rows[0].id);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

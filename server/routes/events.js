@@ -1,5 +1,6 @@
 import express from 'express';
 import pool from '../db.js';
+import { notifyEventRegistration } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -90,8 +91,12 @@ router.post('/:id/register', async (req, res) => {
       'INSERT INTO event_registrations (event_id, member_id) VALUES ($1, $2) RETURNING *',
       [id, member_id]
     );
+    notifyEventRegistration(member_id, id);
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    if (error.code === '23505') {
+      return res.status(409).json({ error: 'Already registered for this event.' });
+    }
     res.status(500).json({ error: error.message });
   }
 });

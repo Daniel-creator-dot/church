@@ -1,13 +1,18 @@
 import express from 'express';
 import pool from '../db.js';
 import bcrypt from 'bcrypt';
+import { notifyMemberWelcome } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
-// Get all members
+// Members API — exclude password hash from list responses
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM members ORDER BY created_at DESC');
+    const result = await pool.query(
+      `SELECT id, first_name, last_name, email, phone, address, date_of_birth, status, role, membership_date, household_id, created_at
+       FROM members ORDER BY created_at DESC`
+    );
+    res.set('Cache-Control', 'private, max-age=30');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -43,6 +48,7 @@ router.post('/', async (req, res) => {
       'INSERT INTO members (first_name, last_name, email, phone, address, date_of_birth, status, role, password) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *',
       [first_name, last_name, email, phone, address, date_of_birth, status || 'active', role || 'Member', hashedPassword]
     );
+    notifyMemberWelcome({ first_name, phone });
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

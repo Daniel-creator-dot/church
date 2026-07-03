@@ -97,7 +97,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [reminderResult, setReminderResult] = useState<{ count: number; channel?: string; sent?: number; reminders: { memberName: string; email?: string; phone?: string; mailto?: string; assignmentDate: string; roleName: string; status?: string }[] } | null>(null);
   const [reminderLoading, setReminderLoading] = useState(false);
   const [smsReminderLoading, setSmsReminderLoading] = useState(false);
-  const [messagingConfig, setMessagingConfig] = useState<{ provider: string; ready: boolean; message: string; balanceUnits?: number | null; sender?: string | null } | null>(null);
+  const [messagingConfig, setMessagingConfig] = useState<{ provider: string; ready: boolean; message: string; balanceUnits?: number | null; sender?: string | null; triggers?: string[] } | null>(null);
   const [smsOutbox, setSmsOutbox] = useState<{ id: number; recipient: string; body: string; status: string; created_at: string }[]>([]);
 
   // Pledge form state
@@ -834,14 +834,21 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
           <p className="text-sm text-slate-500 mt-1">Send bulk email or SMS via Intek. Volunteer SMS reminders send automatically when configured.</p>
         </div>
         {messagingConfig && (
-          <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-sm text-violet-800 flex items-start gap-2">
-            <i className="bi bi-chat-dots-fill shrink-0 mt-0.5"></i>
-            <div>
-              <span className="font-bold">SMS: {messagingConfig.provider}</span>
-              {messagingConfig.balanceUnits != null && (
-                <span className="text-violet-600"> · {messagingConfig.balanceUnits} units</span>
-              )}
-              <span className="text-violet-600"> — {messagingConfig.message}</span>
+          <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-sm text-violet-800">
+            <div className="flex items-start gap-2">
+              <i className="bi bi-chat-dots-fill shrink-0 mt-0.5"></i>
+              <div>
+                <span className="font-bold">SMS: {messagingConfig.provider}</span>
+                {messagingConfig.balanceUnits != null && (
+                  <span className="text-violet-600"> · {messagingConfig.balanceUnits} units</span>
+                )}
+                <span className="text-violet-600"> — {messagingConfig.message}</span>
+                {messagingConfig.triggers && messagingConfig.triggers.length > 0 && (
+                  <ul className="mt-2 text-xs text-violet-700 space-y-0.5 list-disc list-inside">
+                    {messagingConfig.triggers.map(t => <li key={t}>{t}</li>)}
+                  </ul>
+                )}
+              </div>
             </div>
           </div>
         )}

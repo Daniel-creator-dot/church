@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { sendSms, buildVolunteerSmsReminder } from '../services/messaging.js';
+import { notifyVolunteerScheduled } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -66,6 +67,7 @@ router.post('/assignments', async (req, res) => {
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [event_id, member_id, role_id, role_name, assignment_date, notes]
     );
+    notifyVolunteerScheduled(result.rows[0].id);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });

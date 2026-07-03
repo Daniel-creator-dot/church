@@ -1,6 +1,7 @@
 import express from 'express';
 import QRCode from 'qrcode';
 import pool from '../db.js';
+import { notifyCheckInPresence } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -296,6 +297,8 @@ router.post('/family', async (req, res) => {
       return res.status(400).json({ error: 'Select at least one family member.' });
     }
 
+    await notifyCheckInPresence(member_ids, event_id, { onlyNew: true });
+
     const checkedIn = [];
     for (const memberId of member_ids) {
       const insert = await pool.query(
@@ -366,6 +369,8 @@ router.post('/public', async (req, res) => {
       return res.status(404).json({ error: 'No member found with this email. Please contact the church office.' });
     }
 
+    await notifyCheckInPresence([member.rows[0].id], event_id, { onlyNew: true });
+
     const insert = await pool.query(
       `INSERT INTO event_checkins (event_id, member_id, checked_in_by, family_tag)
        VALUES ($1, $2, $3, $4)
@@ -413,6 +418,8 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { event_id, member_id, checked_in_by, family_tag } = req.body;
+    await notifyCheckInPresence([member_id], event_id, { onlyNew: true });
+
     const insert = await pool.query(
       `INSERT INTO event_checkins (event_id, member_id, checked_in_by, family_tag)
        VALUES ($1, $2, $3, $4)

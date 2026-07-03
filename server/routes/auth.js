@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import bcrypt from 'bcrypt';
+import { notifyMemberWelcome } from '../services/smsNotifications.js';
 
 const router = express.Router();
 
@@ -91,6 +92,7 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
+    notifyMemberWelcome({ first_name: user.first_name, phone });
     res.status(201).json({
       success: true,
       user: {
