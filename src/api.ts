@@ -268,6 +268,7 @@ export const formsApi = {
   getSubmissions: (id: number) => apiCall(`/forms/${id}/submissions`),
   submit: (id: number, data: any) => apiCall(`/forms/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
   ensureVipNomination: () => apiCall('/forms/vip-nomination', { method: 'POST', body: JSON.stringify({}) }),
+  getVipNominations: () => apiCall('/forms/vip-nomination/submissions'),
 };
 
 export const financeApi = {

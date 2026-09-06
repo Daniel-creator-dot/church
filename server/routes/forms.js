@@ -76,6 +76,27 @@ router.get('/vip-nomination', async (req, res) => {
   }
 });
 
+router.get('/vip-nomination/submissions', async (req, res) => {
+  try {
+    const form = await ensureVipForm();
+    const result = await pool.query(
+      `SELECT id, form_id, submitter_name, submitter_email, responses, submitted_at
+       FROM form_submissions
+       WHERE form_id = $1
+       ORDER BY submitted_at DESC`,
+      [form.id]
+    );
+    res.json({
+      formId: form.id,
+      formTitle: form.title,
+      count: result.rows.length,
+      submissions: result.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/', async (req, res) => {
   try {
     const { title, description, fields, is_public, is_anonymous } = req.body;
