@@ -9,7 +9,7 @@
 param(
   [string]$RenderApiKey = $env:RENDER_API_KEY,
   [string]$DbPassword = $env:SUPABASE_DB_PASSWORD,
-  [string]$ProjectRef = "kfhnohvhtfxsuvhihlcs",
+  [string]$ProjectRef = "ykmwlorbwqdlnyktjmnk",
   [string]$ServiceHint = "churchapi"
 )
 
