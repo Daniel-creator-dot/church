@@ -96,7 +96,8 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-app.get('/', (req, res) => {
+app.get('/', (req, res, next) => {
+  if (process.env.SERVE_STATIC === 'true') return next();
   res.json({ message: 'Church Management API Server' });
 });
 

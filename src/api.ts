@@ -1,5 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL
-  || (import.meta.env.DEV ? '/api' : 'https://churchapi-o3pk.onrender.com/api');
+  || (import.meta.env.DEV ? '/api' : 'https://churchapi-z9bu.onrender.com/api');
 
 // Generic API helper
 async function apiCall(endpoint: string, options: RequestInit = {}) {
