@@ -320,7 +320,14 @@ export const messagingApi = {
   }) => apiCall('/messaging/config', { method: 'PUT', body: JSON.stringify(data) }),
   testSms: (data: { phone: string; message?: string }) =>
     apiCall('/messaging/test', { method: 'POST', body: JSON.stringify(data) }),
-  getOutbox: (limit?: number) => apiCall(limit ? `/messaging/outbox?limit=${limit}` : '/messaging/outbox'),
+  getOutbox: (limit?: number, sync?: boolean) => {
+    const params = new URLSearchParams();
+    if (limit) params.set('limit', String(limit));
+    if (sync) params.set('sync', '1');
+    const qs = params.toString();
+    return apiCall(qs ? `/messaging/outbox?${qs}` : '/messaging/outbox');
+  },
+  syncDelivery: () => apiCall('/messaging/sync-delivery', { method: 'POST', body: JSON.stringify({}) }),
 };
 
 // Auth API

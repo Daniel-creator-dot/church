@@ -7,6 +7,7 @@ import {
   loadSmsConfigFromDb,
   saveSmsConfig,
   sendSms,
+  syncIntekDeliveryStatus,
 } from '../services/messaging.js';
 import { SMS_TRIGGERS } from '../services/smsNotifications.js';
 
@@ -138,11 +139,26 @@ router.post('/test', async (req, res) => {
 router.get('/outbox', async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const sync = req.query.sync === '1' || req.query.sync === 'true';
+    if (sync) {
+      await loadSmsConfigFromDb();
+      await syncIntekDeliveryStatus(Math.min(limit, 40));
+    }
     const result = await pool.query(
       `SELECT * FROM message_outbox ORDER BY created_at DESC LIMIT $1`,
       [limit]
     );
     res.json(result.rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/sync-delivery', async (req, res) => {
+  try {
+    await loadSmsConfigFromDb();
+    const result = await syncIntekDeliveryStatus(40);
+    res.json({ success: true, ...result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

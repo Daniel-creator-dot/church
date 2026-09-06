@@ -97,6 +97,17 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
   const [showBulk, setShowBulk] = useState(false);
   const [addingContact, setAddingContact] = useState(false);
 
+  const [outbox, setOutbox] = useState<{ id: number; recipient: string; body: string; status: string; created_at: string; error_message?: string }[]>([]);
+
+  const loadOutbox = useCallback(async (sync = true) => {
+    try {
+      const rows = await messagingApi.getOutbox(15, sync);
+      setOutbox(rows || []);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoading(true);
     setErrorMsg(null);
@@ -112,13 +123,14 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         label: c.label || 'Added',
       })));
       setSmsReady(Boolean(cfg?.intekConfigured && cfg?.smsEnabled));
+      await loadOutbox(true);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Failed to load nominations');
       setSubmissions([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadOutbox]);
 
   useEffect(() => {
     load();
@@ -301,10 +313,11 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         sent_by: sentBy,
       });
       setStatusMsg(
-        `Sent to ${result.sent} of ${result.count} people` +
+        `Submitted to Intek for ${result.sent} of ${result.count} people` +
           (result.failed ? ` (${result.failed} failed)` : '') +
-          '.'
+          '. Check delivery status below — phones can take a minute.'
       );
+      await loadOutbox(true);
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Failed to send SMS');
     } finally {
@@ -656,6 +669,38 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
             <button type="button" onClick={clearSelection} className="btn-secondary text-xs py-2">
               Clear selection
             </button>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-white p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <h6 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">SMS delivery status</h6>
+              <button type="button" onClick={() => loadOutbox(true)} className="text-[11px] font-semibold text-indigo-600 hover:underline">
+                Refresh delivery
+              </button>
+            </div>
+            {outbox.length === 0 && (
+              <p className="text-xs text-slate-400">No SMS sent yet.</p>
+            )}
+            <div className="max-h-48 overflow-y-auto space-y-2">
+              {outbox.map((row) => (
+                <div key={row.id} className="text-xs border-b border-slate-100 pb-2 last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono text-slate-700">{row.recipient}</span>
+                    <span className={`font-bold uppercase ${
+                      row.status === 'delivered' ? 'text-emerald-600'
+                        : row.status === 'failed' ? 'text-rose-600'
+                          : row.status === 'submitted' || row.status === 'sent' ? 'text-amber-600'
+                            : 'text-slate-500'
+                    }`}>{row.status}</span>
+                  </div>
+                  <div className="text-slate-400 truncate mt-0.5">{row.body}</div>
+                  {row.error_message && <div className="text-rose-500 mt-0.5">{row.error_message}</div>}
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-slate-400 leading-relaxed">
+              Tip: keep messages short, avoid blasting the same number many times, and wait for <strong>delivered</strong> (not only submitted/sent).
+            </p>
           </div>
         </div>
       </div>

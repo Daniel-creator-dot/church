@@ -1,7 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { notifyVipNominationThanks } from '../services/smsNotifications.js';
-import { sendSms } from '../services/messaging.js';
+import { sendSms, syncIntekDeliveryStatus } from '../services/messaging.js';
 
 const router = express.Router();
 
@@ -266,14 +266,31 @@ router.delete('/vip-nomination/contacts/:key', async (req, res) => {
 router.post('/vip-nomination/sms', async (req, res) => {
   try {
     const { message, recipients, sent_by: sentBy } = req.body || {};
-    const body = String(message || '').trim();
+    const body = String(message || '')
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
     if (!body) return res.status(400).json({ error: 'message is required' });
     if (!Array.isArray(recipients) || recipients.length === 0) {
       return res.status(400).json({ error: 'Select at least one recipient' });
     }
 
-    const results = [];
+    // Dedupe by phone digits so the same number is not blasted repeatedly
+    const seen = new Set();
+    const uniqueRecipients = [];
     for (const recipient of recipients) {
+      const digits = String(recipient.phone || '').replace(/\D/g, '');
+      if (!digits || seen.has(digits)) continue;
+      seen.add(digits);
+      uniqueRecipients.push(recipient);
+    }
+
+    const results = [];
+    for (let i = 0; i < uniqueRecipients.length; i++) {
+      const recipient = uniqueRecipients[i];
+      if (i > 0) {
+        await new Promise((r) => setTimeout(r, 1000));
+      }
       const phone = recipient.phone;
       const name = recipient.name || 'Friend';
       const personalized = body
@@ -292,9 +309,10 @@ router.post('/vip-nomination/sms', async (req, res) => {
         results.push({
           key: recipient.key,
           name,
-          phone,
+          phone: row.recipient || phone,
           status: row.status,
           outboxId: row.id,
+          campaignId: row.provider_message_id || null,
         });
       } catch (error) {
         results.push({
@@ -307,12 +325,21 @@ router.post('/vip-nomination/sms', async (req, res) => {
       }
     }
 
-    const sent = results.filter((r) => ['sent', 'queued', 'stub'].includes(r.status)).length;
+    // Give Intek a moment, then refresh delivery reports
+    await new Promise((r) => setTimeout(r, 2500));
+    const sync = await syncIntekDeliveryStatus(40);
+
+    const sent = results.filter((r) =>
+      ['sent', 'queued', 'stub', 'submitted', 'delivered'].includes(r.status)
+    ).length;
     res.json({
       success: true,
       count: results.length,
       sent,
       failed: results.length - sent,
+      dedupedFrom: recipients.length,
+      deliverySync: sync,
+      tip: 'Intek may show Submitted/Sent before Delivered. Check SMS Outbox delivery status, and avoid long messages with many links.',
       results,
     });
   } catch (error) {

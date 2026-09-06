@@ -9,6 +9,7 @@ function formatSmsRecipient(phone) {
   const digits = (phone || '').replace(/\D/g, '');
   if (!digits) return '';
 
+  // Ghana international → local 0XXXXXXXXX (Intek/Ghana networks)
   if (digits.startsWith('233') && digits.length >= 12) {
     return `0${digits.slice(3)}`;
   }
@@ -17,6 +18,19 @@ function formatSmsRecipient(phone) {
   if (digits.length === 10) return `0${digits}`;
   if (digits.length > 10) return `0${digits.slice(-9)}`;
   return digits;
+}
+
+/** Normalize message for better carrier delivery (no huge blank lines). */
+function sanitizeSmsBody(body) {
+  return String(body || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 export async function loadSmsConfigFromDb() {
@@ -177,6 +191,7 @@ async function sendViaIntek({ to, body }) {
 
   const apiUrl = s.intekApiUrl.replace(/\/$/, '');
   const sender = s.intekSender || 'mychurch';
+  const message = sanitizeSmsBody(body);
 
   const response = await fetch(`${apiUrl}/messages/send`, {
     method: 'POST',
@@ -186,7 +201,7 @@ async function sendViaIntek({ to, body }) {
       Accept: 'application/json',
     },
     body: JSON.stringify({
-      message: body,
+      message,
       recipients: [recipient],
       sender,
     }),
@@ -197,10 +212,90 @@ async function sendViaIntek({ to, body }) {
     throw new Error(data.error || data.message || `Intek SMS error ${response.status}`);
   }
 
+  // Intek "sent" means accepted by gateway — delivery report comes later
   return {
     providerMessageId: String(data.data?.campaign_id || ''),
-    status: data.data?.status === 'sent' ? 'sent' : 'queued',
+    status: 'submitted',
   };
+}
+
+export async function syncIntekDeliveryStatus(limit = 30) {
+  const config = getMessagingConfig();
+  if (config.provider !== 'intek' || !config.intekConfigured) {
+    return { updated: 0, rows: [] };
+  }
+
+  const { _secrets: s } = config;
+  const apiUrl = s.intekApiUrl.replace(/\/$/, '');
+
+  const { rows } = await pool.query(
+    `SELECT id, provider_message_id, status
+     FROM message_outbox
+     WHERE provider = 'intek'
+       AND provider_message_id IS NOT NULL
+       AND provider_message_id <> ''
+       AND status IN ('queued', 'submitted', 'sent')
+     ORDER BY id DESC
+     LIMIT $1`,
+    [limit]
+  );
+
+  const updated = [];
+  for (const row of rows) {
+    try {
+      const response = await fetch(`${apiUrl}/campaigns/${row.provider_message_id}`, {
+        headers: {
+          Authorization: `Bearer ${s.intekApiKey}`,
+          Accept: 'application/json',
+        },
+      });
+      const data = await response.json();
+      if (!response.ok || !data.ok) continue;
+
+      const stats = data.data?.recipient_stats || {};
+      let nextStatus = row.status;
+      let errorMessage = null;
+
+      if ((stats.delivered || 0) > 0) {
+        nextStatus = 'delivered';
+      } else if ((stats.failed || 0) > 0 && (stats.delivered || 0) === 0 && (stats.sent || 0) === 0 && (stats.queued || 0) === 0) {
+        nextStatus = 'failed';
+        errorMessage = 'Intek marked recipient(s) failed';
+      } else if ((stats.sent || 0) > 0) {
+        nextStatus = 'sent';
+      } else if ((stats.queued || 0) > 0) {
+        nextStatus = 'queued';
+      }
+
+      if (nextStatus !== row.status) {
+        await pool.query(
+          `UPDATE message_outbox
+           SET status = $1, error_message = $2
+           WHERE id = $3`,
+          [nextStatus, errorMessage, row.id]
+        );
+        updated.push({
+          id: row.id,
+          campaignId: row.provider_message_id,
+          from: row.status,
+          to: nextStatus,
+          stats,
+        });
+      } else {
+        updated.push({
+          id: row.id,
+          campaignId: row.provider_message_id,
+          from: row.status,
+          to: row.status,
+          stats,
+        });
+      }
+    } catch (err) {
+      console.error('Intek delivery sync failed:', err.message);
+    }
+  }
+
+  return { updated: updated.filter((u) => u.from !== u.to).length, rows: updated };
 }
 
 async function sendViaTwilio({ to, body }) {
@@ -301,7 +396,9 @@ export async function sendSms({
 
 export async function sendBulkSms({ recipients, body, subject, targetGroup, sentBy }) {
   const results = [];
-  for (const recipient of recipients) {
+  for (let i = 0; i < recipients.length; i++) {
+    const recipient = recipients[i];
+    if (i > 0) await sleep(900); // avoid carrier/gateway burst filtering
     try {
       const row = await sendSms({
         to: recipient.phone,
@@ -331,7 +428,7 @@ export async function sendBulkSms({ recipients, body, subject, targetGroup, sent
 
   return {
     count: results.length,
-    sent: results.filter(r => r.status === 'sent' || r.status === 'queued' || r.status === 'stub').length,
+    sent: results.filter(r => r.status === 'sent' || r.status === 'queued' || r.status === 'stub' || r.status === 'submitted' || r.status === 'delivered').length,
     results,
   };
 }
