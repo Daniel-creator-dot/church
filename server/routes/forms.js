@@ -1,6 +1,7 @@
 import express from 'express';
 import pool from '../db.js';
 import { notifyVipNominationThanks } from '../services/smsNotifications.js';
+import { sendSms } from '../services/messaging.js';
 
 const router = express.Router();
 
@@ -49,6 +50,57 @@ async function ensureVipForm() {
   return created.rows[0];
 }
 
+function parseResponses(raw) {
+  if (!raw) return {};
+  if (typeof raw === 'object') return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function phoneDigits(phone) {
+  return String(phone || '').replace(/\D/g, '');
+}
+
+function extractContactsFromSubmission(row) {
+  const r = parseResponses(row.responses);
+  const contacts = [];
+
+  const memberPhone = r['Member Telephone/WhatsApp'] || '';
+  if (phoneDigits(memberPhone).length >= 9) {
+    contacts.push({
+      key: `member-${row.id}`,
+      kind: 'member',
+      submissionId: row.id,
+      name: row.submitter_name || r['Member Name'] || 'Member',
+      phone: memberPhone,
+      label: 'Nominator',
+    });
+  }
+
+  for (let n = 1; n <= 4; n++) {
+    const name = r[`Guest ${n} Full Name`];
+    const phone = r[`Guest ${n} WhatsApp`] || r[`Guest ${n} Telephone`] || '';
+    if (!name || !String(name).trim()) continue;
+    if (phoneDigits(phone).length < 9) continue;
+    contacts.push({
+      key: `guest-${row.id}-${n}`,
+      kind: 'guest',
+      submissionId: row.id,
+      guestIndex: n,
+      name: String(name).trim(),
+      phone,
+      label: `Guest ${n}`,
+      category: r[`Guest ${n} Category`] || '',
+      priority: r[`Guest ${n} Invitation priority`] || '',
+    });
+  }
+
+  return contacts;
+}
+
 router.get('/', async (req, res) => {
   try {
     const result = await pool.query('SELECT * FROM custom_forms ORDER BY created_at DESC');
@@ -86,11 +138,84 @@ router.get('/vip-nomination/submissions', async (req, res) => {
        ORDER BY submitted_at DESC`,
       [form.id]
     );
+
+    const submissions = result.rows.map((row) => {
+      const responses = parseResponses(row.responses);
+      const contacts = extractContactsFromSubmission(row);
+      return {
+        ...row,
+        responses,
+        contacts,
+        guestCount: [1, 2, 3, 4].filter((n) => responses[`Guest ${n} Full Name`]).length,
+      };
+    });
+
+    const allContacts = submissions.flatMap((s) => s.contacts);
+
     res.json({
       formId: form.id,
       formTitle: form.title,
-      count: result.rows.length,
-      submissions: result.rows,
+      count: submissions.length,
+      contactCount: allContacts.length,
+      submissions,
+      contacts: allContacts,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/vip-nomination/sms', async (req, res) => {
+  try {
+    const { message, recipients, sent_by: sentBy } = req.body || {};
+    const body = String(message || '').trim();
+    if (!body) return res.status(400).json({ error: 'message is required' });
+    if (!Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({ error: 'Select at least one recipient' });
+    }
+
+    const results = [];
+    for (const recipient of recipients) {
+      const phone = recipient.phone;
+      const name = recipient.name || 'Friend';
+      const personalized = body
+        .replaceAll('{{name}}', name.split(' ')[0] || name)
+        .replaceAll('{{fullName}}', name);
+
+      try {
+        const row = await sendSms({
+          to: phone,
+          body: personalized,
+          subject: 'VIP nomination SMS',
+          referenceType: 'vip_nomination_sms',
+          referenceId: recipient.submissionId || null,
+          sentBy: sentBy || 'forms',
+        });
+        results.push({
+          key: recipient.key,
+          name,
+          phone,
+          status: row.status,
+          outboxId: row.id,
+        });
+      } catch (error) {
+        results.push({
+          key: recipient.key,
+          name,
+          phone,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+
+    const sent = results.filter((r) => ['sent', 'queued', 'stub'].includes(r.status)).length;
+    res.json({
+      success: true,
+      count: results.length,
+      sent,
+      failed: results.length - sent,
+      results,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

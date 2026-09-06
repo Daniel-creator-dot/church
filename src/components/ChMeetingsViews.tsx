@@ -19,6 +19,7 @@ import { getTodayString } from '../utils/date';
 import { printSundayBulletin } from '../utils/bulletin';
 import HouseholdManagerView from './HouseholdManagerView';
 import WelcomeDeskKioskView from './WelcomeDeskKioskView';
+import VipNominationsPanel from './VipNominationsPanel';
 
 type ChMeetingsSubView =
   | 'Calendar' | 'Volunteers' | 'Worship Planning' | 'Pledges & Funds'
@@ -121,18 +122,6 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [sundayQr, setSundayQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [vipQr, setVipQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [vipNominationQr, setVipNominationQr] = useState<{ qrDataUrl: string; nominationUrl: string; eventTitle: string } | null>(null);
-  const [vipSubmissions, setVipSubmissions] = useState<{
-    count: number;
-    submissions: {
-      id: number;
-      submitter_name: string;
-      submitter_email: string;
-      responses: Record<string, string>;
-      submitted_at: string;
-    }[];
-  } | null>(null);
-  const [vipSubmissionsLoading, setVipSubmissionsLoading] = useState(false);
-  const [expandedVipId, setExpandedVipId] = useState<number | null>(null);
   const [kioskMode, setKioskMode] = useState(false);
   const [welcomeDeskKiosk, setWelcomeDeskKiosk] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
@@ -168,15 +157,6 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
         eventTitle: data.eventTitle,
       }))
       .catch(() => setVipNominationQr(null));
-
-    setVipSubmissionsLoading(true);
-    formsApi.getVipNominations()
-      .then((data) => setVipSubmissions({
-        count: data.count || data.submissions?.length || 0,
-        submissions: data.submissions || [],
-      }))
-      .catch(() => setVipSubmissions({ count: 0, submissions: [] }))
-      .finally(() => setVipSubmissionsLoading(false));
   }, []);
 
   useEffect(() => {
@@ -1210,140 +1190,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div>
-              <h4 className="text-lg font-bold text-slate-800">
-                <i className="bi bi-people-fill text-indigo-500 mr-2"></i>
-                VIP nominations received
-              </h4>
-              <p className="text-sm text-slate-500 mt-1">
-                Everyone who submitted the VIP Guest Nomination form.
-                {vipSubmissions && (
-                  <span className="ml-1 font-semibold text-slate-700">{vipSubmissions.count} submission{vipSubmissions.count === 1 ? '' : 's'}</span>
-                )}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="btn-secondary text-sm"
-                disabled={vipSubmissionsLoading}
-                onClick={() => {
-                  setVipSubmissionsLoading(true);
-                  formsApi.getVipNominations()
-                    .then((data) => setVipSubmissions({
-                      count: data.count || data.submissions?.length || 0,
-                      submissions: data.submissions || [],
-                    }))
-                    .catch(() => setVipSubmissions({ count: 0, submissions: [] }))
-                    .finally(() => setVipSubmissionsLoading(false));
-                }}
-              >
-                <i className="bi bi-arrow-clockwise mr-1"></i>
-                {vipSubmissionsLoading ? 'Refreshing...' : 'Refresh'}
-              </button>
-              {vipSubmissions && vipSubmissions.submissions.length > 0 && (
-                <button
-                  type="button"
-                  className="btn-primary text-sm"
-                  onClick={() => {
-                    const rows = vipSubmissions.submissions;
-                    const keys = [
-                      'submitted_at', 'submitter_name', 'Member Telephone/WhatsApp', 'Member Ministry/Department/Group',
-                      'Guest 1 Full Name', 'Guest 1 Title/Position', 'Guest 1 Organization/Institution/Church',
-                      'Guest 1 Category', 'Guest 1 Telephone', 'Guest 1 WhatsApp', 'Guest 1 Email',
-                      'Guest 1 Invitation priority', 'Guest 1 Likely to attend',
-                      'Guest 2 Full Name', 'Guest 3 Full Name', 'Guest 4 Full Name',
-                    ];
-                    const escape = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-                    const lines = [
-                      keys.join(','),
-                      ...rows.map((s) => {
-                        const r = typeof s.responses === 'string' ? JSON.parse(s.responses) : (s.responses || {});
-                        return keys.map((k) => {
-                          if (k === 'submitted_at') return escape(new Date(s.submitted_at).toLocaleString());
-                          if (k === 'submitter_name') return escape(s.submitter_name || r['Member Name'] || '');
-                          return escape(r[k] || '');
-                        }).join(',');
-                      }),
-                    ];
-                    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `vip-nominations-${getTodayString()}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                >
-                  <i className="bi bi-download mr-1"></i> Export CSV
-                </button>
-              )}
-            </div>
-          </div>
-
-          {vipSubmissionsLoading && !vipSubmissions && (
-            <p className="text-sm text-slate-400">Loading nominations...</p>
-          )}
-
-          {vipSubmissions && vipSubmissions.submissions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-6 text-center text-sm text-slate-500">
-              No nominations yet. Share the nomination QR or link so members can submit.
-            </div>
-          )}
-
-          {vipSubmissions && vipSubmissions.submissions.length > 0 && (
-            <div className="space-y-3">
-              {vipSubmissions.submissions.map((s) => {
-                const r = typeof s.responses === 'string' ? JSON.parse(s.responses) : (s.responses || {});
-                const guestNames = [1, 2, 3, 4]
-                  .map((n) => r[`Guest ${n} Full Name`])
-                  .filter(Boolean)
-                  .join(', ');
-                const open = expandedVipId === s.id;
-                return (
-                  <div key={s.id} className="rounded-xl border border-slate-200 overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setExpandedVipId(open ? null : s.id)}
-                      className="w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 text-left hover:bg-slate-50"
-                    >
-                      <div>
-                        <div className="font-semibold text-slate-800">
-                          {s.submitter_name || r['Member Name'] || 'Unknown member'}
-                        </div>
-                        <div className="text-xs text-slate-500 mt-0.5">
-                          {r['Member Telephone/WhatsApp'] || '—'}
-                          {r['Member Ministry/Department/Group'] ? ` · ${r['Member Ministry/Department/Group']}` : ''}
-                        </div>
-                        <div className="text-xs text-indigo-600 mt-1">
-                          Guest(s): {guestNames || '—'}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-slate-400 shrink-0">
-                        <span>{new Date(s.submitted_at).toLocaleString()}</span>
-                        <i className={`bi bi-chevron-${open ? 'up' : 'down'}`}></i>
-                      </div>
-                    </button>
-                    {open && (
-                      <div className="border-t border-slate-100 bg-slate-50/80 px-4 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                        {Object.entries(r)
-                          .filter(([, v]) => v !== undefined && String(v).trim() !== '')
-                          .map(([key, value]) => (
-                            <div key={key} className={key.startsWith('Guest') || key.includes('recommend') || key.includes('Why') ? 'sm:col-span-2' : ''}>
-                              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{key}</div>
-                              <div className="text-slate-800 mt-0.5 whitespace-pre-wrap">{String(value)}</div>
-                            </div>
-                          ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        <VipNominationsPanel sentBy={props.userEmail || 'admin'} />
 
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3 max-w-md">

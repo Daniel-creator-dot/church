@@ -269,6 +269,11 @@ export const formsApi = {
   submit: (id: number, data: any) => apiCall(`/forms/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
   ensureVipNomination: () => apiCall('/forms/vip-nomination', { method: 'POST', body: JSON.stringify({}) }),
   getVipNominations: () => apiCall('/forms/vip-nomination/submissions'),
+  sendVipNominationSms: (data: {
+    message: string;
+    recipients: { key?: string; name: string; phone: string; submissionId?: number; kind?: string }[];
+    sent_by?: string;
+  }) => apiCall('/forms/vip-nomination/sms', { method: 'POST', body: JSON.stringify(data) }),
 };
 
 export const financeApi = {
