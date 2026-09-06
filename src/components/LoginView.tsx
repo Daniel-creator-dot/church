@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { authApi } from '../api';
+import { CHURCH_NAME, CHURCH_SHORT_NAME } from '../churchBrand';
 
 interface LoginViewProps {
   onLogin: (user: User) => void;
@@ -75,21 +76,19 @@ export default function LoginView({ onLogin }: LoginViewProps) {
 
   return (
     <div className="min-h-screen flex">
-      {/* Hero panel */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <img src={HERO_IMAGE} alt="Church worship" className="absolute inset-0 w-full h-full object-cover" />
+        <img src={HERO_IMAGE} alt={CHURCH_NAME} className="absolute inset-0 w-full h-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-br from-slate-950/90 via-slate-900/80 to-amber-950/40" />
         <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-widest mb-8">
-              <i className="bi bi-stars"></i> Ministry Portal
-            </div>
-            <h1 className="font-display text-5xl font-bold leading-tight tracking-tight">
-              Grace and Peace<br />
-              <span className="text-amber-400">be multiplied</span>
+            <p className="text-[11px] font-bold uppercase tracking-[0.28em] text-amber-300 mb-4">
+              Assemblies of God
+            </p>
+            <h1 className="font-display text-4xl xl:text-5xl font-bold leading-tight tracking-tight">
+              {CHURCH_NAME}
             </h1>
             <p className="text-slate-300 text-lg mt-6 max-w-md leading-relaxed font-light">
-              The complete command center for members, giving, worship, check-in, and church life.
+              Grace and peace be multiplied. The complete command center for members, giving, worship, check-in, and church life.
             </p>
           </div>
           <div className="grid grid-cols-3 gap-4">
@@ -107,18 +106,18 @@ export default function LoginView({ onLogin }: LoginViewProps) {
         </div>
       </div>
 
-      {/* Form panel */}
       <div className="flex-1 flex items-center justify-center p-6 bg-white mesh-bg">
         <div className="w-full max-w-md space-y-8 animate-fade-in">
           <div className="text-center lg:text-left">
             <div className="inline-flex lg:hidden items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/30 mb-4">
               <i className="bi bi-building text-slate-950 text-xl"></i>
             </div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-600 mb-2 lg:hidden">{CHURCH_SHORT_NAME}</p>
             <h2 className="font-display text-2xl font-bold text-slate-900">
               {showForgotPassword ? 'Reset Password' : isLogin ? 'Welcome back' : 'Join the family'}
             </h2>
             <p className="text-slate-500 text-sm mt-1">
-              {showForgotPassword ? 'We\'ll send you reset instructions' : isLogin ? 'Sign in to Liberty Assemblies of God' : 'Create your member account'}
+              {showForgotPassword ? 'We\'ll send you reset instructions' : isLogin ? `Sign in to ${CHURCH_NAME}` : 'Create your member account'}
             </p>
           </div>
 
@@ -159,19 +158,31 @@ export default function LoginView({ onLogin }: LoginViewProps) {
           ) : (
             <form onSubmit={handleRegister} className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
-                <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name *" className={inputClass.replace('pl-11', 'px-4')} required />
-                <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name *" className={inputClass.replace('pl-11', 'px-4')} required />
+                <input value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="First name" className={inputClass.replace('pl-11', 'pl-4')} required />
+                <input value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Last name" className={inputClass.replace('pl-11', 'pl-4')} required />
               </div>
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email *" className={inputClass.replace('pl-11', 'px-4')} required />
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className={inputClass.replace('pl-11', 'px-4')} />
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone (for Sunday QR check-in)" className={inputClass.replace('pl-11', 'px-4')} />
-              {error && <div className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl">{error}</div>}
+              <div className="relative">
+                <i className="bi bi-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" className={inputClass} required />
+              </div>
+              <div className="relative">
+                <i className="bi bi-lock absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" className={inputClass} />
+              </div>
+              <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="Phone" className={inputClass.replace('pl-11', 'pl-4')} />
+              <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Address" className={inputClass.replace('pl-11', 'pl-4')} />
+              <input type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} className={inputClass.replace('pl-11', 'pl-4')} />
+              {error && <div className="text-sm text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-100">{error}</div>}
+              {success && <div className="text-sm text-emerald-700 bg-emerald-50 p-3 rounded-xl border border-emerald-100">{success}</div>}
               <button type="submit" disabled={isLoading} className="btn-primary w-full py-3.5">{isLoading ? 'Creating...' : 'Create Account'}</button>
-              <button type="button" onClick={() => { setIsLogin(true); setError(''); }} className="w-full text-sm text-slate-500">Already have an account? Sign in</button>
+              <p className="text-center text-sm text-slate-500">
+                Already have an account?{' '}
+                <button type="button" onClick={() => { setIsLogin(true); setError(''); }} className="text-amber-600 font-semibold hover:underline">Sign in</button>
+              </p>
             </form>
           )}
 
-          <p className="text-center text-[10px] text-slate-400">© {new Date().getFullYear()} Liberty Assemblies of God Management System</p>
+          <p className="text-center text-[10px] text-slate-400">© {new Date().getFullYear()} {CHURCH_NAME} Management System</p>
         </div>
       </div>
     </div>

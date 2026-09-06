@@ -626,7 +626,7 @@ export default function App() {
               <i className="bi bi-box-arrow-right"></i>
             </button>
           </div>
-            <div className="text-center text-[9px] text-slate-600 font-mono">v2.11.0</div>
+            <div className="text-center text-[9px] text-slate-600 font-mono">v2.12.0 · Liberty AOG</div>
         </div>
       </aside>
 
