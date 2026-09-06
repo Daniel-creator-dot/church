@@ -151,15 +151,113 @@ router.get('/vip-nomination/submissions', async (req, res) => {
     });
 
     const allContacts = submissions.flatMap((s) => s.contacts);
+    const manual = await loadManualContacts();
 
     res.json({
       formId: form.id,
       formTitle: form.title,
       count: submissions.length,
-      contactCount: allContacts.length,
+      contactCount: allContacts.length + manual.length,
       submissions,
       contacts: allContacts,
+      manualContacts: manual,
     });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+const MANUAL_CONTACTS_KEY = 'vip_manual_contacts';
+
+async function loadManualContacts() {
+  const { rows } = await pool.query(
+    `SELECT value FROM system_settings WHERE key = $1 LIMIT 1`,
+    [MANUAL_CONTACTS_KEY]
+  );
+  if (!rows.length) return [];
+  try {
+    const parsed = JSON.parse(rows[0].value);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function saveManualContacts(list) {
+  await pool.query(
+    `INSERT INTO system_settings (key, value, updated_at)
+     VALUES ($1, $2, CURRENT_TIMESTAMP)
+     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = CURRENT_TIMESTAMP`,
+    [MANUAL_CONTACTS_KEY, JSON.stringify(list)]
+  );
+  return list;
+}
+
+router.get('/vip-nomination/contacts', async (req, res) => {
+  try {
+    const contacts = await loadManualContacts();
+    res.json({ contacts });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/vip-nomination/contacts', async (req, res) => {
+  try {
+    const { name, phone, note, contacts: bulk } = req.body || {};
+    const existing = await loadManualContacts();
+    const added = [];
+
+    const pushOne = (rawName, rawPhone, rawNote = '') => {
+      const phoneVal = String(rawPhone || '').trim();
+      const nameVal = String(rawName || '').trim() || 'Contact';
+      if (phoneDigits(phoneVal).length < 9) return null;
+      const key = `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      const item = {
+        key,
+        kind: 'manual',
+        name: nameVal,
+        phone: phoneVal,
+        label: 'Added',
+        note: String(rawNote || '').trim(),
+        createdAt: new Date().toISOString(),
+      };
+      // skip exact phone duplicates
+      if (existing.some((c) => phoneDigits(c.phone) === phoneDigits(phoneVal))) {
+        return { ...item, duplicate: true };
+      }
+      existing.push(item);
+      added.push(item);
+      return item;
+    };
+
+    if (Array.isArray(bulk) && bulk.length) {
+      for (const row of bulk) {
+        pushOne(row.name, row.phone, row.note);
+      }
+    } else {
+      const one = pushOne(name, phone, note);
+      if (!one) return res.status(400).json({ error: 'Valid name and phone (at least 9 digits) required' });
+      if (one.duplicate) return res.status(409).json({ error: 'That phone number is already in your contact list' });
+    }
+
+    await saveManualContacts(existing);
+    res.status(201).json({
+      success: true,
+      added,
+      contacts: existing,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/vip-nomination/contacts/:key', async (req, res) => {
+  try {
+    const existing = await loadManualContacts();
+    const next = existing.filter((c) => c.key !== req.params.key);
+    await saveManualContacts(next);
+    res.json({ success: true, contacts: next });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

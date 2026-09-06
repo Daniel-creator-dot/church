@@ -4,14 +4,15 @@ import { getTodayString } from '../utils/date';
 
 type VipContact = {
   key: string;
-  kind: 'member' | 'guest';
-  submissionId: number;
+  kind: 'member' | 'guest' | 'manual';
+  submissionId?: number;
   name: string;
   phone: string;
   label: string;
   category?: string;
   priority?: string;
   guestIndex?: number;
+  note?: string;
 };
 
 type VipSubmission = {
@@ -57,12 +58,31 @@ function parseResponses(raw: unknown): Record<string, string> {
   }
 }
 
+function parseBulkText(text: string): { name: string; phone: string }[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      // "Name, 024..." or "Name - 024..." or "024..." only
+      const parts = line.split(/[,;|\t\-–—]/).map((p) => p.trim()).filter(Boolean);
+      if (parts.length === 1) {
+        return { name: 'Contact', phone: parts[0] };
+      }
+      const phone = parts[parts.length - 1];
+      const name = parts.slice(0, -1).join(' ');
+      return { name, phone };
+    })
+    .filter((c) => c.phone.replace(/\D/g, '').length >= 9);
+}
+
 export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: string }) {
   const [submissions, setSubmissions] = useState<VipSubmission[]>([]);
+  const [manualContacts, setManualContacts] = useState<VipContact[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState<'all' | 'members' | 'guests'>('all');
+  const [filter, setFilter] = useState<'all' | 'members' | 'guests' | 'manual'>('all');
   const [search, setSearch] = useState('');
   const [templateId, setTemplateId] = useState('thanks');
   const [message, setMessage] = useState(TEMPLATES[0].body);
@@ -70,6 +90,12 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [smsReady, setSmsReady] = useState(false);
+
+  const [newName, setNewName] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [bulkText, setBulkText] = useState('');
+  const [showBulk, setShowBulk] = useState(false);
+  const [addingContact, setAddingContact] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +106,11 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         messagingApi.getConfig().catch(() => null),
       ]);
       setSubmissions(data.submissions || []);
+      setManualContacts((data.manualContacts || []).map((c: VipContact) => ({
+        ...c,
+        kind: 'manual',
+        label: c.label || 'Added',
+      })));
       setSmsReady(Boolean(cfg?.intekConfigured && cfg?.smsEnabled));
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Failed to load nominations');
@@ -93,9 +124,14 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
     load();
   }, [load]);
 
-  const allContacts = useMemo(
+  const nominationContacts = useMemo(
     () => submissions.flatMap((s) => s.contacts || []),
     [submissions]
+  );
+
+  const allContacts = useMemo(
+    () => [...nominationContacts, ...manualContacts],
+    [nominationContacts, manualContacts]
   );
 
   const filteredContacts = useMemo(() => {
@@ -103,6 +139,7 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
     return allContacts.filter((c) => {
       if (filter === 'members' && c.kind !== 'member') return false;
       if (filter === 'guests' && c.kind !== 'guest') return false;
+      if (filter === 'manual' && c.kind !== 'manual') return false;
       if (!q) return true;
       return (
         c.name.toLowerCase().includes(q) ||
@@ -134,12 +171,80 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
     });
   };
 
+  const selectAllContacts = () => {
+    setSelected(new Set(allContacts.map((c) => c.key)));
+  };
+
   const clearSelection = () => setSelected(new Set());
 
   const applyTemplate = (id: string) => {
     setTemplateId(id);
     const t = TEMPLATES.find((x) => x.id === id);
     if (t) setMessage(t.body);
+  };
+
+  const handleAddContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddingContact(true);
+    setErrorMsg(null);
+    setStatusMsg(null);
+    try {
+      const result = await formsApi.addVipContact({ name: newName.trim(), phone: newPhone.trim() });
+      setManualContacts(result.contacts || []);
+      const addedKey = result.added?.[0]?.key;
+      if (addedKey) {
+        setSelected((prev) => new Set(prev).add(addedKey));
+      }
+      setNewName('');
+      setNewPhone('');
+      setStatusMsg('Contact added and selected for SMS.');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to add contact');
+    } finally {
+      setAddingContact(false);
+    }
+  };
+
+  const handleBulkAdd = async () => {
+    const rows = parseBulkText(bulkText);
+    if (!rows.length) {
+      setErrorMsg('Paste contacts as: Name, 024XXXXXXX (one per line)');
+      return;
+    }
+    setAddingContact(true);
+    setErrorMsg(null);
+    setStatusMsg(null);
+    try {
+      const result = await formsApi.addVipContact({ contacts: rows });
+      setManualContacts(result.contacts || []);
+      const addedKeys = (result.added || []).map((c: VipContact) => c.key);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        addedKeys.forEach((k: string) => next.add(k));
+        return next;
+      });
+      setBulkText('');
+      setShowBulk(false);
+      setStatusMsg(`Added ${addedKeys.length} contact(s) and selected them for SMS.`);
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to add contacts');
+    } finally {
+      setAddingContact(false);
+    }
+  };
+
+  const handleDeleteManual = async (key: string) => {
+    try {
+      const result = await formsApi.deleteVipContact(key);
+      setManualContacts(result.contacts || []);
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Failed to delete contact');
+    }
   };
 
   const exportCsv = () => {
@@ -173,7 +278,7 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
 
   const sendSms = async () => {
     if (!selectedRecipients.length) {
-      setErrorMsg('Select at least one person with a phone number.');
+      setErrorMsg('Select at least one person (or add a contact first).');
       return;
     }
     if (!message.trim()) {
@@ -196,11 +301,9 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         sent_by: sentBy,
       });
       setStatusMsg(
-        `SMS finished: ${result.sent} sent/queued` +
-          (result.failed ? `, ${result.failed} failed` : '') +
-          (result.results?.some((r: { status: string }) => r.status === 'stub')
-            ? ' (stub mode — check Settings → SMS if needed)'
-            : '')
+        `Sent to ${result.sent} of ${result.count} people` +
+          (result.failed ? ` (${result.failed} failed)` : '') +
+          '.'
       );
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Failed to send SMS');
@@ -215,11 +318,10 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         <div>
           <h4 className="text-lg font-bold text-slate-800">
             <i className="bi bi-people-fill text-indigo-500 mr-2"></i>
-            VIP nominations inbox
+            VIP nominations &amp; SMS
           </h4>
           <p className="text-sm text-slate-500 mt-1">
-            {submissions.length} submission{submissions.length === 1 ? '' : 's'} · {allContacts.length} phone contact
-            {allContacts.length === 1 ? '' : 's'} ready for SMS
+            {submissions.length} submission{submissions.length === 1 ? '' : 's'} · {allContacts.length} contacts · {selected.size} selected
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -249,8 +351,58 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_0.8fr] gap-0 xl:divide-x divide-slate-100">
-        {/* Left: submissions + contacts */}
+      {/* Add contacts */}
+      <div className="mx-5 sm:mx-6 mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/50 p-4 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h5 className="text-xs font-bold uppercase tracking-wider text-indigo-700">
+            <i className="bi bi-person-plus-fill mr-1"></i> Add contact(s)
+          </h5>
+          <button
+            type="button"
+            onClick={() => setShowBulk((v) => !v)}
+            className="text-xs font-semibold text-indigo-600 hover:underline"
+          >
+            {showBulk ? 'Single contact' : 'Paste multiple numbers'}
+          </button>
+        </div>
+
+        {!showBulk ? (
+          <form onSubmit={handleAddContact} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-2">
+            <input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Full name"
+              className="input-elegant"
+              required
+            />
+            <input
+              value={newPhone}
+              onChange={(e) => setNewPhone(e.target.value)}
+              placeholder="Phone e.g. 024XXXXXXX"
+              className="input-elegant"
+              required
+            />
+            <button type="submit" disabled={addingContact} className="btn-primary whitespace-nowrap">
+              {addingContact ? 'Adding...' : 'Add & select'}
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-2">
+            <textarea
+              value={bulkText}
+              onChange={(e) => setBulkText(e.target.value)}
+              rows={4}
+              className="input-elegant w-full font-mono text-sm"
+              placeholder={'One per line:\nKwame Mensah, 0241234567\nAma Boateng, 0209876543\n0241112233'}
+            />
+            <button type="button" disabled={addingContact} onClick={handleBulkAdd} className="btn-primary">
+              {addingContact ? 'Adding...' : 'Add all & select for SMS'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-0 xl:divide-x divide-slate-100">
         <div className="p-5 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row gap-2">
             <input
@@ -259,11 +411,12 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
               placeholder="Search name or phone..."
               className="input-elegant flex-1"
             />
-            <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold">
+            <div className="flex rounded-xl border border-slate-200 overflow-hidden text-xs font-semibold flex-wrap">
               {([
                 ['all', 'All'],
                 ['members', 'Nominators'],
                 ['guests', 'Guests'],
+                ['manual', 'Added'],
               ] as const).map(([id, label]) => (
                 <button
                   key={id}
@@ -281,23 +434,62 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
             <button type="button" onClick={selectVisible} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-600">
               Select visible ({filteredContacts.length})
             </button>
-            <button type="button" onClick={clearSelection} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-600">
-              Clear selection
+            <button type="button" onClick={selectAllContacts} className="px-3 py-1.5 rounded-lg border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 font-semibold text-indigo-700">
+              Select all ({allContacts.length})
             </button>
-            <span className="px-3 py-1.5 text-slate-500 self-center">
-              {selected.size} selected
-            </span>
+            <button type="button" onClick={clearSelection} className="px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 font-semibold text-slate-600">
+              Clear
+            </button>
           </div>
 
-          {loading && <p className="text-sm text-slate-400">Loading nominations...</p>}
-
-          {!loading && submissions.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
-              No nominations yet. Share the nomination QR so members can submit.
+          {/* Manual contacts list */}
+          {manualContacts.length > 0 && (filter === 'all' || filter === 'manual') && (
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/40 p-3 space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Your added contacts</div>
+              <div className="flex flex-wrap gap-2">
+                {manualContacts
+                  .filter((c) => {
+                    if (!search.trim()) return true;
+                    const q = search.trim().toLowerCase();
+                    return c.name.toLowerCase().includes(q) || c.phone.includes(q);
+                  })
+                  .map((c) => (
+                    <div
+                      key={c.key}
+                      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                        selected.has(c.key)
+                          ? 'border-indigo-500 bg-indigo-600 text-white'
+                          : 'border-indigo-200 bg-white text-slate-700'
+                      }`}
+                    >
+                      <button type="button" onClick={() => toggle(c.key)} className="inline-flex items-center gap-2">
+                        <i className="bi bi-person-plus-fill"></i>
+                        <span>{c.name}</span>
+                        <span className="font-mono opacity-80">{c.phone}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteManual(c.key)}
+                        className={`ml-1 ${selected.has(c.key) ? 'text-white/80 hover:text-white' : 'text-rose-500 hover:text-rose-700'}`}
+                        title="Remove contact"
+                      >
+                        <i className="bi bi-x-lg"></i>
+                      </button>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
 
-          <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+          {loading && <p className="text-sm text-slate-400">Loading nominations...</p>}
+
+          {!loading && submissions.length === 0 && manualContacts.length === 0 && (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">
+              No nominations yet. Add contacts above, or share the nomination QR.
+            </div>
+          )}
+
+          <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
             {submissions.map((s) => {
               const r = parseResponses(s.responses);
               const open = expandedId === s.id;
@@ -308,10 +500,13 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
               const rowContacts = (s.contacts || []).filter((c) => {
                 if (filter === 'members' && c.kind !== 'member') return false;
                 if (filter === 'guests' && c.kind !== 'guest') return false;
+                if (filter === 'manual') return false;
                 if (!search.trim()) return true;
                 const q = search.trim().toLowerCase();
                 return c.name.toLowerCase().includes(q) || c.phone.includes(q);
               });
+
+              if (filter === 'manual') return null;
 
               return (
                 <div key={s.id} className="rounded-xl border border-slate-200 overflow-hidden">
@@ -346,14 +541,10 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
                       <div className="text-xs text-indigo-600 mt-1 truncate">
                         Guests: {guestNames || '—'}
                       </div>
-                      <div className="text-[11px] text-slate-400 mt-1">
-                        {new Date(s.submitted_at).toLocaleString()} · tap for full details
-                      </div>
                     </button>
                     <i className={`bi bi-chevron-${open ? 'up' : 'down'} text-slate-400 mt-2`}></i>
                   </div>
 
-                  {/* Contact chips for this submission */}
                   {rowContacts.length > 0 && (
                     <div className="px-4 pb-3 flex flex-wrap gap-2">
                       {rowContacts.map((c) => (
@@ -393,12 +584,12 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
           </div>
         </div>
 
-        {/* Right: SMS composer */}
+        {/* SMS composer */}
         <div className="p-5 sm:p-6 bg-slate-50/60 space-y-4 sticky top-0 self-start">
           <div>
-            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Send SMS</h5>
+            <h5 className="text-xs font-bold uppercase tracking-wider text-slate-500">Send multiple SMS</h5>
             <p className="text-sm text-slate-600 mt-1">
-              Select people on the left, pick a template, then send. Use <code className="text-xs bg-white px-1 rounded border">{'{{name}}'}</code> for first name.
+              Select many people (or add contacts), then send one message to all of them. Use <code className="text-xs bg-white px-1 rounded border">{'{{name}}'}</code> for first name.
             </p>
           </div>
 
@@ -427,18 +618,20 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
             placeholder="SMS message..."
           />
           <div className="flex justify-between text-[11px] text-slate-400">
-            <span>{message.length} characters · ~{Math.max(1, Math.ceil(message.length / 160))} SMS segment(s)</span>
-            <span>{selectedRecipients.length} recipient(s)</span>
+            <span>{message.length} chars · ~{Math.max(1, Math.ceil(message.length / 160))} segment(s) each</span>
+            <span className="font-semibold text-indigo-600">{selectedRecipients.length} recipient(s)</span>
           </div>
 
           {selectedRecipients.length > 0 && (
-            <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-36 overflow-y-auto space-y-1">
+            <div className="rounded-xl border border-slate-200 bg-white p-3 max-h-40 overflow-y-auto space-y-1">
               {selectedRecipients.map((c) => (
                 <div key={c.key} className="flex items-center justify-between gap-2 text-xs">
                   <span className="font-semibold text-slate-700 truncate">
                     {c.name} <span className="font-normal text-slate-400">({c.label})</span>
                   </span>
-                  <span className="font-mono text-slate-500 shrink-0">{c.phone}</span>
+                  <button type="button" onClick={() => toggle(c.key)} className="text-rose-500 hover:text-rose-700 shrink-0" title="Remove from selection">
+                    <i className="bi bi-x"></i>
+                  </button>
                 </div>
               ))}
             </div>
@@ -450,15 +643,20 @@ export default function VipNominationsPanel({ sentBy = 'admin' }: { sentBy?: str
             disabled={sending || selectedRecipients.length === 0}
             className="btn-primary w-full disabled:opacity-50"
           >
-            <i className="bi bi-chat-dots-fill mr-2"></i>
+            <i className="bi bi-send-fill mr-2"></i>
             {sending
-              ? 'Sending...'
-              : `Send SMS to ${selectedRecipients.length || 0} selected`}
+              ? `Sending to ${selectedRecipients.length}...`
+              : `Send SMS to ${selectedRecipients.length || 0} people`}
           </button>
 
-          <p className="text-[11px] text-slate-400 leading-relaxed">
-            Tick nominators and/or guests that have phone numbers. Guests without a phone are skipped automatically.
-          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button type="button" onClick={selectAllContacts} className="btn-secondary text-xs py-2">
+              Select everyone
+            </button>
+            <button type="button" onClick={clearSelection} className="btn-secondary text-xs py-2">
+              Clear selection
+            </button>
+          </div>
         </div>
       </div>
     </div>

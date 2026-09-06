@@ -269,6 +269,10 @@ export const formsApi = {
   submit: (id: number, data: any) => apiCall(`/forms/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
   ensureVipNomination: () => apiCall('/forms/vip-nomination', { method: 'POST', body: JSON.stringify({}) }),
   getVipNominations: () => apiCall('/forms/vip-nomination/submissions'),
+  addVipContact: (data: { name?: string; phone?: string; note?: string; contacts?: { name?: string; phone: string; note?: string }[] }) =>
+    apiCall('/forms/vip-nomination/contacts', { method: 'POST', body: JSON.stringify(data) }),
+  deleteVipContact: (key: string) =>
+    apiCall(`/forms/vip-nomination/contacts/${encodeURIComponent(key)}`, { method: 'DELETE' }),
   sendVipNominationSms: (data: {
     message: string;
     recipients: { key?: string; name: string; phone: string; submissionId?: number; kind?: string }[];
