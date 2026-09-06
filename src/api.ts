@@ -295,6 +295,20 @@ export const checkinApi = {
 
 export const messagingApi = {
   getConfig: () => apiCall('/messaging/config'),
+  updateConfig: (data: {
+    provider?: string;
+    smsEnabled?: boolean;
+    intekApiKey?: string;
+    intekSender?: string;
+    intekApiUrl?: string;
+    twilioAccountSid?: string;
+    twilioAuthToken?: string;
+    twilioFromNumber?: string;
+    clearIntekApiKey?: boolean;
+    clearTwilioAuthToken?: boolean;
+  }) => apiCall('/messaging/config', { method: 'PUT', body: JSON.stringify(data) }),
+  testSms: (data: { phone: string; message?: string }) =>
+    apiCall('/messaging/test', { method: 'POST', body: JSON.stringify(data) }),
   getOutbox: (limit?: number) => apiCall(limit ? `/messaging/outbox?limit=${limit}` : '/messaging/outbox'),
 };
 

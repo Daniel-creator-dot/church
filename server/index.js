@@ -36,6 +36,7 @@ import livestreamsRouter from './routes/livestreams.js';
 import discipleshipRouter from './routes/discipleship.js';
 import messagingRouter from './routes/messaging.js';
 import bootstrapRouter from './routes/bootstrap.js';
+import { loadSmsConfigFromDb } from './services/messaging.js';
 
 dotenv.config();
 
@@ -161,6 +162,7 @@ if (process.env.SERVE_STATIC === 'true' && fs.existsSync(distPath)) {
 
 initializeDatabase()
   .then(() => ensureDefaultAdmin())
+  .then(() => loadSmsConfigFromDb())
   .then(() => {
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`Server running on port ${PORT}`);
