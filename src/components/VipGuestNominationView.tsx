@@ -251,7 +251,14 @@ export default function VipGuestNominationView() {
     } catch (err) {
       console.error(err);
       setStatus('error');
-      setErrorMsg('Submission failed. Please try again.');
+      const detail = err instanceof Error ? err.message : '';
+      setErrorMsg(
+        detail.includes('ENOTFOUND') || detail.toLowerCase().includes('database')
+          ? 'The church database is offline right now. Please try again in a few minutes, or contact the church office.'
+          : detail
+            ? `Submission failed: ${detail}`
+            : 'Submission failed. Please try again.'
+      );
     }
   };
 
