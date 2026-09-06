@@ -282,6 +282,7 @@ export const checkinApi = {
   getSundayQr: () => apiCall('/checkin/sunday-qr'),
   getSundayStats: () => apiCall('/checkin/sunday-stats'),
   getVipProgramQr: () => apiCall('/checkin/vip-program-qr'),
+  getVipNominationQr: () => apiCall('/checkin/vip-nomination-qr'),
   getVipProgramStats: () => apiCall('/checkin/vip-program-stats'),
   vipProgramCheckIn: (data: { full_name: string; phone: string }) =>
     apiCall('/checkin/vip-program', { method: 'POST', body: JSON.stringify(data) }),

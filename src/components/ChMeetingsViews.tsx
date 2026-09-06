@@ -120,6 +120,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [qrData, setQrData] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number } | null>(null);
   const [sundayQr, setSundayQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [vipQr, setVipQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
+  const [vipNominationQr, setVipNominationQr] = useState<{ qrDataUrl: string; nominationUrl: string; eventTitle: string } | null>(null);
   const [kioskMode, setKioskMode] = useState(false);
   const [welcomeDeskKiosk, setWelcomeDeskKiosk] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
@@ -147,6 +148,14 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
         serviceDate: data.serviceDate,
       }))
       .catch(() => setVipQr(null));
+
+    checkinApi.getVipNominationQr()
+      .then(data => setVipNominationQr({
+        qrDataUrl: data.qrDataUrl,
+        nominationUrl: data.nominationUrl || data.checkInUrl,
+        eventTitle: data.eventTitle,
+      }))
+      .catch(() => setVipNominationQr(null));
   }, []);
 
   useEffect(() => {
@@ -1114,7 +1123,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
               <h4 className="text-lg font-bold mt-1">VIP Guest Nomination Questionnaire</h4>
               <p className="text-sm text-amber-50/80 mt-2 max-w-xl">
                 REV DR SAM ATO BENTIL&apos;s Retirement &amp; Send-Off — members nominate distinguished guests.
-                After submit, an appreciation SMS is sent. On program day, guests/members scan the QR below for attendance.
+                Print the <strong>nomination QR</strong> for people to open the form. Use the <strong>attendance QR</strong> only on program day.
               </p>
               <p className="text-[11px] font-mono text-amber-100/70 mt-3">
                 Nomination: ?view=vip-nomination · Attendance: ?view=vip-checkin
@@ -1140,20 +1149,44 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
             </div>
           </div>
 
-          {vipQr && (
-            <div className="grid gap-4 sm:grid-cols-[180px_1fr] items-center rounded-2xl bg-white/5 border border-white/10 p-4">
-              <img src={vipQr.qrDataUrl} alt="VIP program attendance QR" className="w-44 h-44 rounded-xl bg-white p-2 mx-auto" />
-              <div className="space-y-2 text-sm">
-                <div className="font-semibold text-amber-100">Program-day attendance QR</div>
-                <p className="text-amber-50/75 text-xs leading-relaxed">
-                  Print and display this QR at the entrance. Attendees scan it, enter name + phone, and are marked present.
-                  Attendance is saved under Reports / Attendance as &quot;VIP Program — Retirement &amp; Send-Off&quot;.
-                </p>
-                <p className="text-[11px] font-mono text-amber-100/60 break-all">{vipQr.checkInUrl}</p>
-                <p className="text-xs text-amber-200/80">{vipQr.checkedInCount} checked in so far</p>
+          <div className="grid gap-4 lg:grid-cols-2">
+            {vipNominationQr && (
+              <div className="grid gap-4 sm:grid-cols-[160px_1fr] items-center rounded-2xl bg-amber-400/15 border border-amber-300/40 p-4">
+                <img src={vipNominationQr.qrDataUrl} alt="VIP nomination form QR" className="w-40 h-40 rounded-xl bg-white p-2 mx-auto" />
+                <div className="space-y-2 text-sm">
+                  <div className="font-semibold text-amber-100">Nomination form QR</div>
+                  <p className="text-amber-50/75 text-xs leading-relaxed">
+                    Share or print this QR so members can open the VIP Guest Nomination Questionnaire on their phone.
+                  </p>
+                  <p className="text-[11px] font-mono text-amber-100/60 break-all">{vipNominationQr.nominationUrl}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(vipNominationQr.nominationUrl);
+                      alert('Nomination link copied');
+                    }}
+                    className="text-xs font-semibold text-amber-200 hover:text-white underline"
+                  >
+                    Copy nomination link
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {vipQr && (
+              <div className="grid gap-4 sm:grid-cols-[160px_1fr] items-center rounded-2xl bg-white/5 border border-white/10 p-4">
+                <img src={vipQr.qrDataUrl} alt="VIP program attendance QR" className="w-40 h-40 rounded-xl bg-white p-2 mx-auto" />
+                <div className="space-y-2 text-sm">
+                  <div className="font-semibold text-amber-100">Program-day attendance QR</div>
+                  <p className="text-amber-50/75 text-xs leading-relaxed">
+                    For the event entrance only. Attendees scan, enter name + phone, and are marked present.
+                  </p>
+                  <p className="text-[11px] font-mono text-amber-100/60 break-all">{vipQr.checkInUrl}</p>
+                  <p className="text-xs text-amber-200/80">{vipQr.checkedInCount} checked in so far</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {isAdmin && (

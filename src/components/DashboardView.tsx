@@ -299,7 +299,7 @@ export default function DashboardView({
             <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/80">Retirement &amp; Send-Off</p>
             <h2 className="mt-1 text-xl font-semibold">VIP Guest Nomination &amp; Attendance</h2>
             <p className="mt-2 text-sm text-amber-50/80 max-w-2xl">
-              Nominate VIP guests, send appreciation SMS after submit, and use the program QR so people can mark attendance when they arrive.
+              Nominate VIP guests (SMS thank-you after submit). Print the nomination QR from Forms for members to open the form; use attendance QR only on program day.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -308,7 +308,7 @@ export default function DashboardView({
               onClick={() => onNavigate('Forms')}
               className="rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-[#1f2a1c] hover:bg-amber-300"
             >
-              Open Forms
+              Open Forms (QRs)
             </button>
             <a
               href="?view=vip-nomination"
@@ -324,7 +324,7 @@ export default function DashboardView({
               rel="noreferrer"
               className="rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-white/5"
             >
-              Attendance QR
+              Attendance check-in
             </a>
           </div>
         </div>

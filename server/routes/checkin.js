@@ -272,6 +272,28 @@ router.get('/sunday-stats', async (req, res) => {
   }
 });
 
+// ---- VIP Nomination QR (opens the public nomination form) ----
+router.get('/vip-nomination-qr', async (req, res) => {
+  try {
+    const nominationUrl = `${getAppUrl()}/?view=vip-nomination`;
+    const qrDataUrl = await QRCode.toDataURL(nominationUrl, {
+      width: 420,
+      margin: 2,
+      color: { dark: '#1f2a1c', light: '#ffffff' },
+      errorCorrectionLevel: 'H',
+    });
+    res.json({
+      eventTitle: 'VIP Guest Nomination Questionnaire',
+      nominationUrl,
+      checkInUrl: nominationUrl,
+      qrDataUrl,
+      purpose: 'nomination',
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ---- VIP Program QR (Retirement & Send-Off attendance) ----
 router.get('/vip-program-qr', async (req, res) => {
   try {
@@ -297,6 +319,7 @@ router.get('/vip-program-qr', async (req, res) => {
       checkedInCount: guestCount.rows[0]?.c || 0,
       memberCount: 0,
       guestCount: guestCount.rows[0]?.c || 0,
+      purpose: 'attendance',
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
