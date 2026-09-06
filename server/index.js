@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import bcrypt from 'bcrypt';
 import pool from './db.js';
 import membersRouter from './routes/members.js';
 import eventsRouter from './routes/events.js';
@@ -41,7 +42,6 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize database schema on startup
 async function initializeDatabase() {
   try {
     console.log('Checking database schema...');
@@ -51,7 +51,42 @@ async function initializeDatabase() {
     console.log('Database schema initialized successfully!');
   } catch (error) {
     console.error('Error initializing database schema:', error.message);
-    // Don't exit, as the schema might already exist
+  }
+}
+
+async function ensureDefaultAdmin() {
+  const email = (process.env.BOOTSTRAP_ADMIN_EMAIL || 'dnkansah29@gmail.com').toLowerCase();
+  const password = process.env.BOOTSTRAP_ADMIN_PASSWORD || 'ChurchAdmin2026!';
+  try {
+    const existing = await pool.query(
+      'SELECT id FROM members WHERE LOWER(email) = LOWER($1) LIMIT 1',
+      [email]
+    );
+    const hash = await bcrypt.hash(password, 10);
+    if (existing.rows.length) {
+      await pool.query(
+        `UPDATE members
+         SET password = $1, role = 'Super Admin', status = 'active', updated_at = CURRENT_TIMESTAMP
+         WHERE LOWER(email) = LOWER($2)`,
+        [hash, email]
+      );
+      console.log(`Bootstrap admin updated: ${email}`);
+    } else {
+      await pool.query(
+        `INSERT INTO members (first_name, last_name, email, password, role, status, phone)
+         VALUES ($1, $2, $3, $4, 'Super Admin', 'active', $5)`,
+        ['David', 'Nkansah', email, hash, '0240000000']
+      );
+      console.log(`Bootstrap admin created: ${email}`);
+    }
+
+    await pool.query(
+      `INSERT INTO system_settings (key, value)
+       VALUES ('church_currency', '{"currencyCode":"GHS","currencySymbol":"GH₵"}')
+       ON CONFLICT (key) DO NOTHING`
+    );
+  } catch (error) {
+    console.error('Bootstrap admin seed skipped:', error.message);
   }
 }
 
@@ -68,16 +103,16 @@ app.get('/', (req, res) => {
 app.get('/api/health', async (req, res) => {
   try {
     const result = await pool.query('SELECT NOW()');
-    res.json({ 
-      status: 'healthy', 
+    res.json({
+      status: 'healthy',
       database: 'connected',
-      timestamp: result.rows[0].now 
+      timestamp: result.rows[0].now,
     });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'unhealthy', 
+    res.status(500).json({
+      status: 'unhealthy',
       database: 'disconnected',
-      error: error.message 
+      error: error.message,
     });
   }
 });
@@ -113,7 +148,6 @@ app.use('/api/discipleship', discipleshipRouter);
 app.use('/api/messaging', messagingRouter);
 app.use('/api/bootstrap', bootstrapRouter);
 
-// Serve frontend build in production when enabled
 const distPath = path.join(__dirname, '..', 'dist');
 if (process.env.SERVE_STATIC === 'true' && fs.existsSync(distPath)) {
   app.use(express.static(distPath));
@@ -124,9 +158,10 @@ if (process.env.SERVE_STATIC === 'true' && fs.existsSync(distPath)) {
   });
 }
 
-// Initialize database and start server
-initializeDatabase().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+initializeDatabase()
+  .then(() => ensureDefaultAdmin())
+  .then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on port ${PORT}`);
+    });
   });
-});
