@@ -47,7 +47,7 @@ export default function MemberDirectoryView({ activeRole, members }: MemberDirec
       <html><head><title>Member Directory</title>
       <style>body{font-family:system-ui,sans-serif;padding:24px}h1{font-size:18px}table{width:100%;border-collapse:collapse;font-size:12px}th{text-align:left;padding:8px;border-bottom:2px solid #333;font-size:10px;text-transform:uppercase;color:#666}</style>
       </head><body>
-      <h1>Bethel Baptist Church — Member Directory</h1>
+      <h1>Liberty Assemblies of God — Member Directory</h1>
       <p style="color:#666;font-size:12px">${filtered.length} active members · Printed ${new Date().toLocaleDateString()}</p>
       <table><thead><tr><th>Name</th><th>Phone</th><th>Email</th><th>Department</th><th>Family</th></tr></thead><tbody>${rows}</tbody></table>
       </body></html>

@@ -118,7 +118,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
               {showForgotPassword ? 'Reset Password' : isLogin ? 'Welcome back' : 'Join the family'}
             </h2>
             <p className="text-slate-500 text-sm mt-1">
-              {showForgotPassword ? 'We\'ll send you reset instructions' : isLogin ? 'Sign in to Bethel Baptist Church' : 'Create your member account'}
+              {showForgotPassword ? 'We\'ll send you reset instructions' : isLogin ? 'Sign in to Liberty Assemblies of God' : 'Create your member account'}
             </p>
           </div>
 
@@ -171,7 +171,7 @@ export default function LoginView({ onLogin }: LoginViewProps) {
             </form>
           )}
 
-          <p className="text-center text-[10px] text-slate-400">© {new Date().getFullYear()} Bethel Baptist Church Management System</p>
+          <p className="text-center text-[10px] text-slate-400">© {new Date().getFullYear()} Liberty Assemblies of God Management System</p>
         </div>
       </div>
     </div>

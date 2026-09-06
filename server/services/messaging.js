@@ -249,5 +249,5 @@ export async function getSmsRecipients(targetGroup) {
 
 export function buildVolunteerSmsReminder({ firstName, roleName, assignmentDate, eventTitle }) {
   const eventPart = eventTitle ? ` (${eventTitle})` : '';
-  return `Hi ${firstName}, reminder: you're serving as ${roleName}${eventPart} on ${assignmentDate}. Thank you! - Bethel Baptist Church`;
+  return `Hi ${firstName}, reminder: you're serving as ${roleName}${eventPart} on ${assignmentDate}. Thank you! - Liberty Assemblies of God`;
 }

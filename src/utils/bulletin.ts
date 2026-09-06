@@ -9,7 +9,7 @@ interface BulletinData {
 }
 
 export function printSundayBulletin(data: BulletinData) {
-  const { churchName = 'Bethel Baptist Church', plan, announcements, events, devotional } = data;
+  const { churchName = 'Liberty Assemblies of God', plan, announcements, events, devotional } = data;
   const sortedItems = [...(plan?.items || [])].sort((a, b) => a.sortOrder - b.sortOrder);
   const upcoming = events
     .filter(e => new Date(e.date) >= new Date())

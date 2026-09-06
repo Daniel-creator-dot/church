@@ -1,7 +1,7 @@
 import pool from '../db.js';
 import { sendSms, getMessagingConfig, buildVolunteerSmsReminder } from './messaging.js';
 
-const CHURCH = process.env.CHURCH_NAME || 'Bethel Baptist Church';
+const CHURCH = process.env.CHURCH_NAME || 'Liberty Assemblies of God';
 
 function formatServiceDate(dateStr) {
   if (!dateStr) return 'today';
@@ -231,6 +231,29 @@ export async function notifyDonationReceived(donationId) {
   });
 }
 
+export function notifyVipNominationThanks({ name, phone }) {
+  if (!phone) return;
+  const first = (name || 'friend').split(' ')[0];
+  const appUrl = process.env.APP_URL || process.env.VITE_APP_URL || 'https://church-ae7v.onrender.com';
+  dispatchSms({
+    to: phone,
+    subject: 'VIP nomination received',
+    referenceType: 'vip_nomination',
+    body: `Hi ${first}, thank you for submitting your VIP guest nomination for REV DR SAM ATO BENTIL's Retirement & Send-Off. ${CHURCH} appreciates you. On the program day, scan the church QR to mark your attendance: ${appUrl}/?view=vip-checkin God bless you!`,
+  });
+}
+
+export function notifyVipProgramAttendance({ name, phone }) {
+  if (!phone) return;
+  const first = (name || 'friend').split(' ')[0];
+  dispatchSms({
+    to: phone,
+    subject: 'Program attendance confirmed',
+    referenceType: 'vip_program_checkin',
+    body: `Hi ${first}, welcome! You're checked in for REV DR SAM ATO BENTIL's Retirement & Send-Off at ${CHURCH}. We're glad you came. God bless you!`,
+  });
+}
+
 export const SMS_TRIGGERS = [
   'Sunday / event check-in (when present)',
   'Event registration (RSVP)',
@@ -241,6 +264,8 @@ export const SMS_TRIGGERS = [
   'Small group join',
   'Prayer request received',
   'Donation recorded (member with phone)',
+  'VIP guest nomination thank-you',
+  'VIP program QR attendance',
   'Volunteer SMS reminders (manual)',
   'Bulk SMS (Communications)',
 ];

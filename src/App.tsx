@@ -27,7 +27,8 @@ import {
   DashboardInsights,
 } from './types';
 
-import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi, insightsApi, booksApi, liveStreamsApi, bootstrapApi } from './api';
+import { membersApi, eventsApi, donationsApi, followupsApi, settingsApi, healthCheck, visitorsApi, attendanceApi, ministriesApi, sermonsApi, announcementsApi, prayerApi, devotionalsApi, mediaApi, householdsApi, fundsApi, pledgesApi, volunteersApi, worshipApi, communicationsApi, formsApi, financeApi, checkinApi, booksApi, liveStreamsApi, bootstrapApi } from './api';
+import { mapBootstrapToState } from './utils/bootstrap';
 import { 
   dbMemberToFrontend, 
   frontendMemberToDb,
@@ -60,6 +61,8 @@ import PublicCheckInView from './components/PublicCheckInView';
 import SundayCheckInView from './components/SundayCheckInView';
 import WelcomeDeskKioskView from './components/WelcomeDeskKioskView';
 import PublicFormView from './components/PublicFormView';
+import VipGuestNominationView from './components/VipGuestNominationView';
+import VipProgramCheckInView from './components/VipProgramCheckInView';
 
 const ManagementViews = lazy(() => import('./components/ManagementViews'));
 const ChurchLifeViews = lazy(() => import('./components/ChurchLifeViews'));
@@ -217,114 +220,56 @@ export default function App() {
       };
 
       await track('health', () => healthCheck(), null);
-      setApiStatus(failures > 0 ? 'degraded' : 'connected');
 
-      const settings = await track('settings', () => settingsApi.get(), { currencyCode: 'USD', currencySymbol: '$' });
-      setCurrencyCode(settings.currencyCode || 'USD');
-      setCurrencySymbol(settings.currencySymbol || '$');
+      const bootstrap = await track(
+        'bootstrap',
+        () => bootstrapApi.load(currentUserEmail ? { email: currentUserEmail } : undefined),
+        null
+      );
 
-      const membersData = await track('members', () => membersApi.getAll(), []);
-      const membersFrontend = membersData.map(dbMemberToFrontend);
-      setMembers(membersFrontend);
+      if (bootstrap) {
+        const mapped = mapBootstrapToState(bootstrap);
+        setCurrencyCode(mapped.currencyCode);
+        setCurrencySymbol(mapped.currencySymbol);
+        setMembers(mapped.members);
+        setVisitors(mapped.visitors);
+        setAttendance(mapped.attendance);
+        setEvents(mapped.events);
+        setGiving(mapped.giving);
+        setFollowUps(mapped.followUps);
+        setDepartments(mapped.departments);
+        setSermons(mapped.sermons);
+        setAnnouncements(mapped.announcements);
+        setPrayerRequests(mapped.prayerRequests);
+        setDevotionals(mapped.devotionals);
+        setMediaAssets(mapped.mediaAssets);
+        setMemberOptions(mapped.memberOptions);
+        setLeaderOptions(mapped.leaderOptions);
+        setHouseholds(mapped.households);
+        setFunds(mapped.funds);
+        setCampaigns(mapped.campaigns);
+        setPledges(mapped.pledges);
+        setVolunteerRoles(mapped.volunteerRoles);
+        setVolunteerAssignments(mapped.volunteerAssignments);
+        setSongs(mapped.songs);
+        setWorshipPlans(mapped.worshipPlans);
+        setCommunications(mapped.communications);
+        setCustomForms(mapped.customForms);
+        setCheckIns(mapped.checkIns);
+        setTransactions(mapped.transactions);
+        setInsights(mapped.insights);
+        setBooks(mapped.books);
+        setLiveStreams(mapped.liveStreams);
+        setPurchasedBookIds(mapped.purchasedBookIds);
 
-      if (currentUserEmail) {
-        const currentUser = membersFrontend.find(m => m.email === currentUserEmail);
-        if (currentUser) setCurrentMemberId(currentUser.id);
-      }
-
-      const visitorsData = await track('visitors', () => visitorsApi.getAll(), []);
-      setVisitors(visitorsData.map(dbVisitorToFrontend));
-
-      const attendanceData = await track('attendance', () => attendanceApi.getAll(), []);
-      setAttendance(attendanceData.map(dbAttendanceToFrontend));
-
-      const eventsData = await track('events', () => eventsApi.getAll(), []);
-      setEvents(eventsData.map(dbEventToFrontend));
-
-      const donationsData = await track('donations', () => donationsApi.getAll(), []);
-      setGiving(donationsData.map(dbDonationToFrontend));
-
-      const followUpsData = await track('followups', () => followupsApi.getAll(), []);
-      setFollowUps(followUpsData.map(dbFollowUpToFrontend));
-
-      const ministriesData = await track('ministries', () => ministriesApi.getAll(), []);
-      setDepartments(ministriesData.map(dbMinistryToFrontend));
-
-      const sermonsData = await track('sermons', () => sermonsApi.getAll(), []);
-      setSermons(sermonsData.map(dbSermonToFrontend));
-
-      const announcementsData = await track('announcements', () => announcementsApi.getAll(), []);
-      setAnnouncements(announcementsData.map(dbAnnouncementToFrontend));
-
-      const prayerData = await track('prayer', () => prayerApi.getAll(), []);
-      setPrayerRequests(prayerData.map(dbPrayerToFrontend));
-
-      const devotionalsData = await track('devotionals', () => devotionalsApi.getAll(), []);
-      setDevotionals(devotionalsData.map(dbDevotionalToFrontend));
-
-      const mediaData = await track('media', () => mediaApi.getAll(), []);
-      setMediaAssets(mediaData.map(dbMediaToFrontend));
-
-      const memberOptionsData = await track('member options', () => followupsApi.getMembers(), []);
-      setMemberOptions(memberOptionsData.map(dbMemberToOption));
-
-      const leaderOptionsData = await track('leader options', () => followupsApi.getLeaders(), []);
-      setLeaderOptions(leaderOptionsData.map(dbLeaderToOption));
-
-      const householdsData = await track('households', () => householdsApi.getAll(), []);
-      setHouseholds(householdsData.map(dbHouseholdToFrontend));
-
-      const fundsData = await track('funds', () => fundsApi.getAll(), []);
-      setFunds(fundsData.map(dbFundToFrontend));
-
-      const campaignsData = await track('campaigns', () => pledgesApi.getCampaigns(), []);
-      setCampaigns(campaignsData.map(dbCampaignToFrontend));
-
-      const pledgesData = await track('pledges', () => pledgesApi.getAll(), []);
-      setPledges(pledgesData.map(dbPledgeToFrontend));
-
-      const volRolesData = await track('volunteer roles', () => volunteersApi.getRoles(), []);
-      setVolunteerRoles(volRolesData.map(dbVolunteerRoleToFrontend));
-
-      const volAssignData = await track('volunteer assignments', () => volunteersApi.getAssignments(), []);
-      setVolunteerAssignments(volAssignData.map(dbVolunteerAssignmentToFrontend));
-
-      const songsData = await track('songs', () => worshipApi.getSongs(), []);
-      setSongs(songsData.map(dbSongToFrontend));
-
-      const plansData = await track('worship plans', () => worshipApi.getPlans(), []);
-      setWorshipPlans(plansData.map(dbWorshipPlanToFrontend));
-
-      const commsData = await track('communications', () => communicationsApi.getAll(), []);
-      setCommunications(commsData.map(dbCommunicationToFrontend));
-
-      const formsData = await track('forms', () => formsApi.getAll(), []);
-      setCustomForms(formsData.map(dbFormToFrontend));
-
-      const checkinData = await track('checkins', () => checkinApi.getAll(), []);
-      setCheckIns(checkinData.map(dbCheckInToFrontend));
-
-      const financeData = await track('finance', () => financeApi.getAll(), []);
-      setTransactions(financeData.map(dbFinanceToFrontend));
-
-      const insightsData = await track('insights', () => insightsApi.getDashboard(), null);
-      if (insightsData) setInsights(insightsData as DashboardInsights);
-
-      const booksData = await track('books', () => booksApi.getAll(), []);
-      setBooks(booksData.map(dbBookToFrontend));
-
-      const streamsData = await track('livestreams', () => liveStreamsApi.getAll(), []);
-      setLiveStreams(streamsData.map(dbLiveStreamToFrontend));
-
-      if (currentMemberId) {
-        const memberDbId = parseInt(currentMemberId.replace('M-', ''), 10);
-        if (!isNaN(memberDbId)) {
-          const purchaseIds = await track('book purchases', () => booksApi.getPurchases(memberDbId), []);
-          setPurchasedBookIds(purchaseIds.map((id: number) => `BK-${id}`));
+        if (currentUserEmail) {
+          const currentUser = mapped.membersFrontend.find(m => m.email === currentUserEmail);
+          if (currentUser) setCurrentMemberId(currentUser.id);
         }
       }
 
       if (failures > 3) setApiStatus('offline');
+      else setApiStatus(failures > 0 ? 'degraded' : 'connected');
       setIsLoading(false);
     };
 
@@ -478,6 +423,7 @@ export default function App() {
     { name: 'Live Stream', icon: 'bi-camera-video', viewGroup: 'Church Life' },
     { name: 'Sermons', icon: 'bi-volume-up', viewGroup: 'Church Life' },
     { name: 'Events', icon: 'bi-calendar-event', viewGroup: 'Church Life' },
+    { name: 'Forms', icon: 'bi-ui-checks', viewGroup: 'Church Life' },
     { name: 'Prayer Requests', icon: 'bi-heart', viewGroup: 'Church Life' },
     { name: 'Announcements', icon: 'bi-bell', viewGroup: 'Church Life' },
     { name: 'Devotional', icon: 'bi-book', viewGroup: 'Church Life' },
@@ -487,16 +433,15 @@ export default function App() {
     { name: 'Small Groups', icon: 'bi-diagram-3', viewGroup: 'Church Life' },
     { name: 'Discipleship', icon: 'bi-signpost-split', viewGroup: 'Church Life' },
 
-    // ChMeetings-inspired modules
-    { name: 'Calendar', icon: 'bi-calendar3', viewGroup: 'ChMeetings' },
-    { name: 'Volunteers', icon: 'bi-person-workspace', viewGroup: 'ChMeetings' },
-    { name: 'Worship Planning', icon: 'bi-music-note-beamed', viewGroup: 'ChMeetings' },
-    { name: 'Pledges & Funds', icon: 'bi-piggy-bank', viewGroup: 'ChMeetings' },
-    { name: 'Communications', icon: 'bi-envelope', viewGroup: 'ChMeetings' },
-    { name: 'Check-In', icon: 'bi-qr-code', viewGroup: 'ChMeetings' },
-    { name: 'Households', icon: 'bi-house-heart', viewGroup: 'ChMeetings' },
-    { name: 'Forms', icon: 'bi-ui-checks', viewGroup: 'ChMeetings' },
-    { name: 'Accounting', icon: 'bi-calculator', viewGroup: 'ChMeetings' },
+    // Operations modules
+    { name: 'Calendar', icon: 'bi-calendar3', viewGroup: 'Operations' },
+    { name: 'Volunteers', icon: 'bi-person-workspace', viewGroup: 'Operations' },
+    { name: 'Worship Planning', icon: 'bi-music-note-beamed', viewGroup: 'Operations' },
+    { name: 'Pledges & Funds', icon: 'bi-piggy-bank', viewGroup: 'Operations' },
+    { name: 'Communications', icon: 'bi-envelope', viewGroup: 'Operations' },
+    { name: 'Check-In', icon: 'bi-qr-code', viewGroup: 'Operations' },
+    { name: 'Households', icon: 'bi-house-heart', viewGroup: 'Operations' },
+    { name: 'Accounting', icon: 'bi-calculator', viewGroup: 'Operations' },
 
     // Analytical Reporting group
     { name: 'Reports', icon: 'bi-file-earmark-spreadsheet', viewGroup: 'Analytics' },
@@ -513,6 +458,8 @@ export default function App() {
       setActiveTab('Prayer Wall');
     } else if (actionType === 'checkin') {
       setActiveTab('Check-In');
+    } else if (actionType === 'forms' || actionType === 'vip-forms') {
+      setActiveTab('Forms');
     }
   };
 
@@ -542,9 +489,19 @@ export default function App() {
   const isSundayCheckInView = publicView === 'sunday-checkin';
   const isWelcomeDeskView = publicView === 'welcome-desk';
   const isPublicFormView = publicView === 'form';
+  const isVipNominationView = publicView === 'vip-nomination';
+  const isVipCheckInView = publicView === 'vip-checkin';
 
   if (isVisitorSignupView) {
     return <VisitorSignupView />;
+  }
+
+  if (isVipNominationView) {
+    return <VipGuestNominationView />;
+  }
+
+  if (isVipCheckInView) {
+    return <VipProgramCheckInView />;
   }
 
   if (isWelcomeDeskView) {
@@ -580,7 +537,7 @@ export default function App() {
             <div className="absolute -inset-2 rounded-3xl border border-amber-500/30 animate-ping opacity-20" />
           </div>
           <div>
-            <p className="font-display text-xl font-bold text-slate-900">Bethel Baptist Church</p>
+            <p className="font-display text-xl font-bold text-slate-900">Liberty Assemblies of God</p>
             <p className="text-slate-500 text-sm mt-1">Loading your ministry portal...</p>
           </div>
         </div>
@@ -601,7 +558,7 @@ export default function App() {
                 <i className="bi bi-building text-slate-950 text-lg"></i>
               </div>
               <div>
-                <span className="block font-display font-bold text-sm text-white leading-tight">Bethel Baptist</span>
+                <span className="block font-display font-bold text-sm text-white leading-tight">Liberty AOG</span>
                 <span className="block text-[9px] text-amber-400/90 font-bold uppercase tracking-[0.2em]">Ministry Portal</span>
               </div>
             </div>
@@ -612,7 +569,7 @@ export default function App() {
         </div>
 
         <div className="flex-1 overflow-y-auto py-5 space-y-6">
-          {['Core', 'Administration', 'Church Life', 'ChMeetings', 'Analytics'].map(group => {
+          {['Core', 'Administration', 'Church Life', 'Operations', 'Analytics'].map(group => {
             const items = sidebarNavItems.filter(item => item.viewGroup === group && isTabAllowedForRole(item.name, activeRole));
             if (items.length === 0) return null;
             return (
@@ -669,7 +626,7 @@ export default function App() {
               <i className="bi bi-box-arrow-right"></i>
             </button>
           </div>
-          <div className="text-center text-[9px] text-slate-600 font-mono">v2.10.0</div>
+            <div className="text-center text-[9px] text-slate-600 font-mono">v2.11.0</div>
         </div>
       </aside>
 
@@ -682,7 +639,7 @@ export default function App() {
             </button>
             <div>
               <h2 className="font-display text-xl font-bold text-slate-900 leading-tight">{activeTab}</h2>
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Bethel Baptist Church</span>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wider">Liberty Assemblies of God</span>
             </div>
           </div>
 

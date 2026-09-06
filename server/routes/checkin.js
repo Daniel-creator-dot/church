@@ -1,9 +1,11 @@
 import express from 'express';
 import QRCode from 'qrcode';
 import pool from '../db.js';
-import { notifyCheckInPresence } from '../services/smsNotifications.js';
+import { notifyCheckInPresence, notifyVipProgramAttendance } from '../services/smsNotifications.js';
 
 const router = express.Router();
+
+const VIP_PROGRAM_TITLE = "REV DR SAM ATO BENTIL Retirement & Send-Off";
 
 function getAppUrl() {
   return process.env.APP_URL || process.env.VITE_APP_URL || 'https://church-ae7v.onrender.com';
@@ -17,6 +19,21 @@ function normalizePhone(phone) {
 
 function todayISO() {
   return new Date().toISOString().split('T')[0];
+}
+
+async function ensureProgramGuestTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS program_guest_checkins (
+      id SERIAL PRIMARY KEY,
+      event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+      full_name VARCHAR(255) NOT NULL,
+      phone VARCHAR(50),
+      source VARCHAR(50) DEFAULT 'walk-in',
+      member_id INTEGER REFERENCES members(id),
+      notes TEXT,
+      checkin_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 async function getOrCreateSundayEvent() {
@@ -36,6 +53,59 @@ async function getOrCreateSundayEvent() {
     [`Sunday Worship — ${today}`, today]
   );
   return created.rows[0];
+}
+
+async function getOrCreateVipProgramEvent() {
+  const existing = await pool.query(
+    `SELECT id, title, event_date, event_time, location FROM events
+     WHERE title ILIKE '%SAM ATO BENTIL%' OR title ILIKE '%Retirement%Send-Off%'
+     ORDER BY id DESC LIMIT 1`
+  );
+  if (existing.rows.length) return existing.rows[0];
+
+  const created = await pool.query(
+    `INSERT INTO events (title, event_date, event_time, location, description)
+     VALUES ($1, $2, '09:00', 'Main Sanctuary',
+       'Retirement & Send-Off Celebration — VIP guest program attendance QR check-in')
+     RETURNING id, title, event_date, event_time, location`,
+    [VIP_PROGRAM_TITLE, todayISO()]
+  );
+  return created.rows[0];
+}
+
+async function syncProgramAttendance(event) {
+  const today = event.event_date || todayISO();
+  const serviceType = 'VIP Program — Retirement & Send-Off';
+  const guestCount = await pool.query(
+    'SELECT COUNT(*)::int AS c FROM program_guest_checkins WHERE event_id = $1',
+    [event.id]
+  );
+  const headcount = guestCount.rows[0]?.c || 0;
+  const memberIds = await pool.query(
+    `SELECT DISTINCT member_id::text AS id FROM program_guest_checkins
+     WHERE event_id = $1 AND member_id IS NOT NULL`,
+    [event.id]
+  );
+  const attended = memberIds.rows.map((r) => r.id);
+
+  const existing = await pool.query(
+    `SELECT id FROM attendance_records WHERE service_date = $1 AND service_type = $2 LIMIT 1`,
+    [today, serviceType]
+  );
+  if (existing.rows.length) {
+    await pool.query(
+      `UPDATE attendance_records
+       SET headcount = $1, attended_member_ids = $2, notes = $3, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $4`,
+      [headcount, attended, `VIP program QR — ${headcount} present`, existing.rows[0].id]
+    );
+  } else {
+    await pool.query(
+      `INSERT INTO attendance_records (service_date, service_type, headcount, attended_member_ids, notes)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [today, serviceType, headcount, attended, `VIP program QR — ${headcount} present`]
+    );
+  }
 }
 
 async function syncSundayAttendance(memberIds) {
@@ -196,6 +266,149 @@ router.get('/sunday-stats', async (req, res) => {
       eventId: event.id,
       serviceDate: event.event_date,
       checkedInCount: count.rows[0].c,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ---- VIP Program QR (Retirement & Send-Off attendance) ----
+router.get('/vip-program-qr', async (req, res) => {
+  try {
+    await ensureProgramGuestTable();
+    const event = await getOrCreateVipProgramEvent();
+    const checkInUrl = `${getAppUrl()}/?view=vip-checkin`;
+    const qrDataUrl = await QRCode.toDataURL(checkInUrl, {
+      width: 420,
+      margin: 2,
+      color: { dark: '#1f2a1c', light: '#ffffff' },
+      errorCorrectionLevel: 'H',
+    });
+    const guestCount = await pool.query(
+      'SELECT COUNT(*)::int AS c FROM program_guest_checkins WHERE event_id = $1',
+      [event.id]
+    );
+    res.json({
+      eventId: event.id,
+      eventTitle: event.title,
+      serviceDate: event.event_date,
+      checkInUrl,
+      qrDataUrl,
+      checkedInCount: guestCount.rows[0]?.c || 0,
+      memberCount: 0,
+      guestCount: guestCount.rows[0]?.c || 0,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/vip-program-stats', async (req, res) => {
+  try {
+    await ensureProgramGuestTable();
+    const event = await getOrCreateVipProgramEvent();
+    const guestCount = await pool.query(
+      'SELECT COUNT(*)::int AS c FROM program_guest_checkins WHERE event_id = $1',
+      [event.id]
+    );
+    const recent = await pool.query(
+      `SELECT full_name AS name, phone, checkin_time, COALESCE(source, 'guest') AS kind
+       FROM program_guest_checkins
+       WHERE event_id = $1
+       ORDER BY checkin_time DESC
+       LIMIT 40`,
+      [event.id]
+    );
+    res.json({
+      eventId: event.id,
+      eventTitle: event.title,
+      serviceDate: event.event_date,
+      checkedInCount: guestCount.rows[0]?.c || 0,
+      recent: recent.rows,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/vip-program', async (req, res) => {
+  try {
+    await ensureProgramGuestTable();
+    const { full_name, phone } = req.body;
+    const name = String(full_name || '').trim();
+    const phoneNorm = normalizePhone(phone);
+
+    if (name.length < 2) {
+      return res.status(400).json({ error: 'Please enter your full name.' });
+    }
+    if (phoneNorm.length < 7) {
+      return res.status(400).json({ error: 'Please enter a valid phone number.' });
+    }
+
+    const event = await getOrCreateVipProgramEvent();
+
+    const alreadyGuest = await pool.query(
+      `SELECT id FROM program_guest_checkins
+       WHERE event_id = $1
+         AND RIGHT(REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g'), 10) = $2
+       LIMIT 1`,
+      [event.id, phoneNorm]
+    );
+    if (alreadyGuest.rows.length) {
+      return res.status(200).json({
+        alreadyCheckedIn: true,
+        message: 'You are already checked in for this program. Welcome!',
+        eventTitle: event.title,
+      });
+    }
+
+    const memberMatch = await pool.query(
+      `SELECT id, first_name, last_name, phone FROM members
+       WHERE LOWER(COALESCE(status, 'active')) = 'active'
+         AND LENGTH(REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g')) >= 7
+         AND RIGHT(REGEXP_REPLACE(COALESCE(phone, ''), '[^0-9]', '', 'g'), 10) = $1
+       LIMIT 1`,
+      [phoneNorm]
+    );
+
+    let memberId = null;
+    if (memberMatch.rows.length) {
+      memberId = memberMatch.rows[0].id;
+      const existingMemberCi = await pool.query(
+        'SELECT id FROM event_checkins WHERE event_id = $1 AND member_id = $2',
+        [event.id, memberId]
+      );
+      if (!existingMemberCi.rows.length) {
+        await pool.query(
+          `INSERT INTO event_checkins (event_id, member_id, checked_in_by, family_tag)
+           VALUES ($1, $2, 'vip-program-qr', 'vip-program')
+           ON CONFLICT (event_id, member_id) DO UPDATE SET checkin_time = CURRENT_TIMESTAMP`,
+          [event.id, memberId]
+        );
+      }
+    }
+
+    await pool.query(
+      `INSERT INTO program_guest_checkins (event_id, full_name, phone, source, member_id, notes)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [
+        event.id,
+        name,
+        phone,
+        memberId ? 'member' : 'guest',
+        memberId,
+        'VIP program QR attendance',
+      ]
+    );
+
+    await syncProgramAttendance(event);
+    notifyVipProgramAttendance({ name, phone });
+
+    res.status(201).json({
+      alreadyCheckedIn: false,
+      message: `Welcome to ${event.title}! You are checked in.`,
+      eventTitle: event.title,
+      name,
     });
   } catch (error) {
     res.status(500).json({ error: error.message });

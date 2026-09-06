@@ -247,7 +247,7 @@ export default function DashboardView({
         <div className="absolute inset-y-0 right-0 w-1/3 bg-[url('https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=900&q=80')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 space-y-4 max-w-2xl">
           <div className="inline-flex items-center gap-2 border border-[#F59E0B]/30 bg-[#F59E0B]/20 px-3 py-1 text-xs font-semibold uppercase tracking-[0.25em] text-[#FDE68A]">
-            Bethel Baptist Church Portal
+            Liberty Assemblies of God Portal
           </div>
           <h1 className="text-3xl md:text-4xl font-sans font-light tracking-tight leading-none">
             Grace and Peace be multiplied to you.
@@ -281,6 +281,51 @@ export default function DashboardView({
             >
               <i className="bi bi-heart text-xs text-[#F59E0B]"></i> Submit Prayer Request
             </button>
+            <button
+              id="quick-vip-forms"
+              onClick={() => onQuickAction('vip-forms')}
+              className="inline-flex items-center gap-2 rounded-2xl bg-emerald-700 px-4 py-2.5 text-xs font-semibold text-white border border-emerald-600 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-emerald-600"
+            >
+              <i className="bi bi-ui-checks text-xs"></i> VIP Forms
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* VIP Forms spotlight */}
+      <div className="rounded-3xl border border-amber-200 bg-gradient-to-br from-[#1f2a1c] to-[#2a3926] p-6 text-[#f7f3ea] shadow-sm">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <p className="text-[10px] uppercase tracking-[0.2em] text-amber-200/80">Retirement &amp; Send-Off</p>
+            <h2 className="mt-1 text-xl font-semibold">VIP Guest Nomination &amp; Attendance</h2>
+            <p className="mt-2 text-sm text-amber-50/80 max-w-2xl">
+              Nominate VIP guests, send appreciation SMS after submit, and use the program QR so people can mark attendance when they arrive.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => onNavigate('Forms')}
+              className="rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-[#1f2a1c] hover:bg-amber-300"
+            >
+              Open Forms
+            </button>
+            <a
+              href="?view=vip-nomination"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-white/5"
+            >
+              Nomination form
+            </a>
+            <a
+              href="?view=vip-checkin"
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-amber-300/40 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-white/5"
+            >
+              Attendance QR
+            </a>
           </div>
         </div>
       </div>

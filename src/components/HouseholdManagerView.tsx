@@ -38,7 +38,7 @@ function printFamilyCard(household: Household) {
       .phone { margin-top: 16px; font-size: 13px; color: #334155; }
     </style></head><body>
     <div class="card">
-      <div class="church">Bethel Baptist Church</div>
+      <div class="church">Liberty Assemblies of God</div>
       <h1>${household.name}</h1>
       <p class="hint">Scan the Sunday QR and enter this family code to check in:</p>
       <div class="code">${household.familyCode || '—'}</div>

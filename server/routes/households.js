@@ -37,15 +37,7 @@ router.get('/', async (req, res) => {
       LEFT JOIN members pm ON h.primary_member_id = pm.id
       ORDER BY h.name ASC
     `);
-
-    for (const row of result.rows) {
-      if (!row.family_code) {
-        const code = await uniqueFamilyCode();
-        await pool.query('UPDATE households SET family_code = $1 WHERE id = $2', [code, row.id]);
-        row.family_code = code;
-      }
-    }
-
+    res.set('Cache-Control', 'private, max-age=60');
     res.json(result.rows);
   } catch (error) {
     res.status(500).json({ error: error.message });

@@ -34,6 +34,7 @@ import booksRouter from './routes/books.js';
 import livestreamsRouter from './routes/livestreams.js';
 import discipleshipRouter from './routes/discipleship.js';
 import messagingRouter from './routes/messaging.js';
+import bootstrapRouter from './routes/bootstrap.js';
 
 dotenv.config();
 
@@ -110,6 +111,7 @@ app.use('/api/books', booksRouter);
 app.use('/api/livestreams', livestreamsRouter);
 app.use('/api/discipleship', discipleshipRouter);
 app.use('/api/messaging', messagingRouter);
+app.use('/api/bootstrap', bootstrapRouter);
 
 // Serve frontend build in production when enabled
 const distPath = path.join(__dirname, '..', 'dist');

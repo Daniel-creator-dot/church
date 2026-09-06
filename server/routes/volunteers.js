@@ -99,7 +99,7 @@ router.post('/remind', async (req, res) => {
     for (const row of withEmail) {
       const subject = `Volunteer Reminder: ${row.role_name} on ${row.assignment_date}`;
       const eventPart = row.event_title ? ` for "${row.event_title}"` : '';
-      const body = `Dear ${row.first_name},\n\nThis is a reminder that you are scheduled to serve as ${row.role_name}${eventPart} on ${row.assignment_date}.\n\nThank you for serving!\nBethel Baptist Church`;
+      const body = `Dear ${row.first_name},\n\nThis is a reminder that you are scheduled to serve as ${row.role_name}${eventPart} on ${row.assignment_date}.\n\nThank you for serving!\nLiberty Assemblies of God`;
 
       await pool.query(
         `INSERT INTO communications (subject, body, channel, target_group, status, sent_by)

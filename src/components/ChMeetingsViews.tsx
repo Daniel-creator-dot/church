@@ -119,6 +119,7 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
   const [checkinMemberId, setCheckinMemberId] = useState('');
   const [qrData, setQrData] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number } | null>(null);
   const [sundayQr, setSundayQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
+  const [vipQr, setVipQr] = useState<{ qrDataUrl: string; checkInUrl: string; eventTitle: string; checkedInCount: number; serviceDate: string } | null>(null);
   const [kioskMode, setKioskMode] = useState(false);
   const [welcomeDeskKiosk, setWelcomeDeskKiosk] = useState(false);
   const [qrLoading, setQrLoading] = useState(false);
@@ -136,6 +137,16 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
       }))
       .catch(() => setSundayQr(null))
       .finally(() => setSundayQrLoading(false));
+
+    checkinApi.getVipProgramQr()
+      .then(data => setVipQr({
+        qrDataUrl: data.qrDataUrl,
+        checkInUrl: data.checkInUrl,
+        eventTitle: data.eventTitle,
+        checkedInCount: data.checkedInCount,
+        serviceDate: data.serviceDate,
+      }))
+      .catch(() => setVipQr(null));
   }, []);
 
   useEffect(() => {
@@ -1095,6 +1106,56 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
           <h3 className="text-lg font-bold text-slate-800"><i className="bi bi-ui-checks text-indigo-500 mr-2"></i>Custom Forms</h3>
           <p className="text-sm text-slate-500 mt-1">Create and embed custom forms for data collection.</p>
         </div>
+
+        <div className="bg-gradient-to-br from-[#1f2a1c] to-[#2a3926] p-6 rounded-2xl text-[#f7f3ea] shadow-sm space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.18em] text-amber-200/80">Liberty Assemblies of God</p>
+              <h4 className="text-lg font-bold mt-1">VIP Guest Nomination Questionnaire</h4>
+              <p className="text-sm text-amber-50/80 mt-2 max-w-xl">
+                REV DR SAM ATO BENTIL&apos;s Retirement &amp; Send-Off — members nominate distinguished guests.
+                After submit, an appreciation SMS is sent. On program day, guests/members scan the QR below for attendance.
+              </p>
+              <p className="text-[11px] font-mono text-amber-100/70 mt-3">
+                Nomination: ?view=vip-nomination · Attendance: ?view=vip-checkin
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <a
+                href="?view=vip-nomination"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-xl bg-amber-400 px-4 py-2.5 text-sm font-semibold text-[#1f2a1c] hover:bg-amber-300"
+              >
+                Open nomination form
+              </a>
+              <a
+                href="?view=vip-checkin"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center rounded-xl border border-amber-300/50 px-4 py-2.5 text-sm font-semibold text-amber-100 hover:bg-white/5"
+              >
+                Open attendance check-in
+              </a>
+            </div>
+          </div>
+
+          {vipQr && (
+            <div className="grid gap-4 sm:grid-cols-[180px_1fr] items-center rounded-2xl bg-white/5 border border-white/10 p-4">
+              <img src={vipQr.qrDataUrl} alt="VIP program attendance QR" className="w-44 h-44 rounded-xl bg-white p-2 mx-auto" />
+              <div className="space-y-2 text-sm">
+                <div className="font-semibold text-amber-100">Program-day attendance QR</div>
+                <p className="text-amber-50/75 text-xs leading-relaxed">
+                  Print and display this QR at the entrance. Attendees scan it, enter name + phone, and are marked present.
+                  Attendance is saved under Reports / Attendance as &quot;VIP Program — Retirement &amp; Send-Off&quot;.
+                </p>
+                <p className="text-[11px] font-mono text-amber-100/60 break-all">{vipQr.checkInUrl}</p>
+                <p className="text-xs text-amber-200/80">{vipQr.checkedInCount} checked in so far</p>
+              </div>
+            </div>
+          )}
+        </div>
+
         {isAdmin && (
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-3 max-w-md">
             <input value={formTitle} onChange={e => setFormTitle(e.target.value)} placeholder="Form title" className="input-elegant w-full" />
@@ -1111,7 +1172,11 @@ export default function ChMeetingsViews(props: ChMeetingsViewsProps) {
                 <span className="text-[10px] badge-slate">{f.fields.length} fields</span>
                 {f.isPublic && <span className="text-[10px] badge-amber">Public</span>}
               </div>
-              <div className="text-[10px] text-slate-400 mt-2 font-mono">Link: ?view=form&id={f.id.replace('FORM-', '')}</div>
+              <div className="text-[10px] text-slate-400 mt-2 font-mono">
+                Link: {f.title.includes('VIP Guest Nomination')
+                  ? '?view=vip-nomination'
+                  : `?view=form&id=${f.id.replace('FORM-', '')}`}
+              </div>
             </div>
           ))}
         </div>

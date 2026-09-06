@@ -47,7 +47,7 @@ export default function VisitorSignupView() {
       <div className="mx-auto max-w-2xl rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6">
           <p className="text-sm font-semibold uppercase tracking-[0.2em] text-indigo-600">Visitor Registration</p>
-          <h1 className="mt-2 text-3xl font-semibold">Welcome to Bethel Baptist Church</h1>
+          <h1 className="mt-2 text-3xl font-semibold">Welcome to Liberty Assemblies of God</h1>
           <p className="mt-3 text-sm text-slate-500">Share a few details so the church can follow up with you and pray with you.</p>
         </div>
 

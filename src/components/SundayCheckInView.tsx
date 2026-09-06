@@ -169,7 +169,7 @@ export default function SundayCheckInView() {
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 shadow-lg shadow-amber-500/30 mb-4">
             <i className="bi bi-qr-code-scan text-2xl text-slate-950"></i>
           </div>
-          <h1 className="font-display text-2xl font-bold text-white tracking-tight">Bethel Baptist Church</h1>
+          <h1 className="font-display text-2xl font-bold text-white tracking-tight">Liberty Assemblies of God</h1>
           <p className="text-amber-400/90 text-sm font-semibold mt-1 uppercase tracking-widest">Sunday Check-In</p>
           {serviceDate && step !== 'phone' && (
             <p className="text-slate-400 text-xs mt-2">{new Date(serviceDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</p>

@@ -63,7 +63,7 @@ export default function WelcomeDeskKioskView({ onExit, showExit = true }: Welcom
       )}
 
       <div className="relative z-10 text-center max-w-2xl w-full">
-        <p className="text-amber-400/90 text-xs font-bold uppercase tracking-[0.3em] mb-2">Bethel Baptist Church</p>
+        <p className="text-amber-400/90 text-xs font-bold uppercase tracking-[0.3em] mb-2">Liberty Assemblies of God</p>
         <h1 className="font-display text-3xl md:text-5xl font-bold tracking-tight mb-1">Welcome — Check In</h1>
         <p className="text-slate-400 text-sm md:text-base mb-8">{serviceLabel}</p>
 

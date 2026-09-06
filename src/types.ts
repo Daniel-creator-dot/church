@@ -1,5 +1,5 @@
 /**
- * Types & Interfaces for Bethel Baptist Church Web Application
+ * Types & Interfaces for Liberty Assemblies of God Web Application
  */
 
 export type Role = 

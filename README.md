@@ -1,4 +1,4 @@
-# Bethel Baptist Church Management System
+# Liberty Assemblies of God Management System
 
 A comprehensive church management platform for member administration, giving, events, ministries, attendance, and church life content.
 
@@ -77,6 +77,30 @@ The Vite dev server proxies `/api` to `http://localhost:3001`.
 | API | https://churchapi-o3pk.onrender.com |
 
 Set `VITE_API_URL=https://churchapi-o3pk.onrender.com/api` when building the frontend.
+
+### Intek SMS (production API service)
+
+On the **churchapi** Render web service, set:
+
+| Variable | Value |
+|----------|--------|
+| `MESSAGING_PROVIDER` | `intek` |
+| `SMS_ENABLED` | `true` |
+| `INTEK_API_KEY` | your Intek API key |
+| `INTEK_SENDER` | `mychurch` |
+| `INTEK_API_URL` | `https://www.inteksms.top/api/v1` |
+| `CHURCH_NAME` | `Liberty Assemblies of God` |
+| `APP_URL` | `https://church-ae7v.onrender.com` |
+
+Or run (requires a [Render API key](https://dashboard.render.com/u/settings#api-keys)):
+
+```powershell
+$env:RENDER_API_KEY = "rnd_..."
+$env:INTEK_API_KEY = "INTEK_..."
+.\scripts\configure-render-sms.ps1
+```
+
+Verify: `GET https://churchapi-o3pk.onrender.com/api/messaging/config` should show `"provider":"intek"` and a balance.
 
 For a single-service deploy, set `SERVE_STATIC=true` and run `npm run build` before `npm start`.
 

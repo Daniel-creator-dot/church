@@ -267,6 +267,7 @@ export const formsApi = {
   create: (data: any) => apiCall('/forms', { method: 'POST', body: JSON.stringify(data) }),
   getSubmissions: (id: number) => apiCall(`/forms/${id}/submissions`),
   submit: (id: number, data: any) => apiCall(`/forms/${id}/submit`, { method: 'POST', body: JSON.stringify(data) }),
+  ensureVipNomination: () => apiCall('/forms/vip-nomination', { method: 'POST', body: JSON.stringify({}) }),
 };
 
 export const financeApi = {
@@ -280,6 +281,10 @@ export const checkinApi = {
   getQr: (eventId: number) => apiCall(`/checkin/qr/${eventId}`),
   getSundayQr: () => apiCall('/checkin/sunday-qr'),
   getSundayStats: () => apiCall('/checkin/sunday-stats'),
+  getVipProgramQr: () => apiCall('/checkin/vip-program-qr'),
+  getVipProgramStats: () => apiCall('/checkin/vip-program-stats'),
+  vipProgramCheckIn: (data: { full_name: string; phone: string }) =>
+    apiCall('/checkin/vip-program', { method: 'POST', body: JSON.stringify(data) }),
   lookupFamily: (data: { phone?: string; family_code?: string }) =>
     apiCall('/checkin/lookup-family', { method: 'POST', body: JSON.stringify(data) }),
   familyCheckIn: (data: { event_id: number; member_ids: number[] }) => apiCall('/checkin/family', { method: 'POST', body: JSON.stringify(data) }),
@@ -291,6 +296,17 @@ export const checkinApi = {
 export const messagingApi = {
   getConfig: () => apiCall('/messaging/config'),
   getOutbox: (limit?: number) => apiCall(limit ? `/messaging/outbox?limit=${limit}` : '/messaging/outbox'),
+};
+
+// Auth API
+export const bootstrapApi = {
+  load: (opts?: { memberId?: number; email?: string }) => {
+    const params = new URLSearchParams();
+    if (opts?.memberId) params.set('member_id', String(opts.memberId));
+    if (opts?.email) params.set('email', opts.email);
+    const qs = params.toString();
+    return apiCall(qs ? `/bootstrap?${qs}` : '/bootstrap');
+  },
 };
 
 // Auth API

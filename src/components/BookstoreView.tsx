@@ -319,7 +319,7 @@ export default function BookstoreView({
                 </span>
                 Bank: <b>Morning Covenant Bank</b><br />
                 Account: <b>1019-2453-8680</b><br />
-                Account Name: <b>Bethel Baptist Church</b>
+                Account Name: <b>Liberty Assemblies of God</b>
               </div>
             )}
           </div>

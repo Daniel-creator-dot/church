@@ -364,6 +364,21 @@ CREATE TABLE IF NOT EXISTS event_checkins (
   UNIQUE(event_id, member_id)
 );
 
+-- Guest / program attendance (VIP events, non-members)
+CREATE TABLE IF NOT EXISTS program_guest_checkins (
+  id SERIAL PRIMARY KEY,
+  event_id INTEGER REFERENCES events(id) ON DELETE CASCADE,
+  full_name VARCHAR(255) NOT NULL,
+  phone VARCHAR(50),
+  source VARCHAR(50) DEFAULT 'walk-in',
+  member_id INTEGER REFERENCES members(id),
+  notes TEXT,
+  checkin_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_program_guest_event ON program_guest_checkins(event_id);
+CREATE INDEX IF NOT EXISTS idx_program_guest_phone ON program_guest_checkins(phone);
+
 CREATE INDEX IF NOT EXISTS idx_households_name ON households(name);
 CREATE INDEX IF NOT EXISTS idx_funds_active ON funds(is_active);
 CREATE INDEX IF NOT EXISTS idx_pledges_campaign ON pledges(campaign_id);

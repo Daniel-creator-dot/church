@@ -74,7 +74,7 @@ export default function PublicCheckInView() {
             <i className="bi bi-check-circle text-2xl"></i>
           </div>
           <h1 className="text-xl font-bold">Event Check-In</h1>
-          <p className="text-teal-100 text-sm mt-1">Bethel Baptist Church</p>
+          <p className="text-teal-100 text-sm mt-1">Liberty Assemblies of God</p>
         </div>
 
         <div className="p-6 space-y-5">

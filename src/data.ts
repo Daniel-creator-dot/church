@@ -353,7 +353,7 @@ export const INITIAL_EVENTS: ChurchEvent[] = [
     title: 'Mid-Year Glory Crusade 2026',
     date: getDateOffset(4), // Future Crusade
     time: '18:00',
-    location: 'Bethel Baptist Church Main Arena & Outdoor Park',
+    location: 'Liberty Assemblies of God Main Arena & Outdoor Park',
     category: 'Crusade',
     description: 'A 3-day outdoor power, miracles, salvation, and breakthrough revival. Invite friends, family, and the sick.',
     rsvps: ['dnkansah29@gmail.com', 'sophia.a@gmail.com', 'eboateng@gmail.com']
@@ -783,7 +783,7 @@ export const INITIAL_FINANCE_TRANSACTIONS: FinanceTransaction[] = [
 export const INITIAL_CHURCHES: Church[] = [
   {
     id: 'C-001',
-    name: 'Bethel Baptist Church Main Arena',
+    name: 'Liberty Assemblies of God Main Arena',
     location: 'Accra, Ghana',
     pastor: 'Pastor John Wilson',
     foundedDate: '2020-01-01',
@@ -793,7 +793,7 @@ export const INITIAL_CHURCHES: Church[] = [
   },
   {
     id: 'C-002',
-    name: 'Bethel Baptist Church Grace Cathedral',
+    name: 'Liberty Assemblies of God Grace Cathedral',
     location: 'London, UK',
     pastor: 'Pastor Sarah Jenkins',
     foundedDate: '2023-05-15',
@@ -803,7 +803,7 @@ export const INITIAL_CHURCHES: Church[] = [
   },
   {
     id: 'C-003',
-    name: 'Bethel Baptist Church Resurrection Temple',
+    name: 'Liberty Assemblies of God Resurrection Temple',
     location: 'Houston, Texas, USA',
     pastor: 'Dr. Samuel Boateng',
     foundedDate: '2025-09-01',
